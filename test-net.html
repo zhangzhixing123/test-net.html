@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <h2>网络连接最终测试</h2>
+    <button onclick="testConnection()">点击测试 Supabase 连接</button>
+    <div id="result" style="margin-top:20px;"></div>
+
+    <script>
+        async function testConnection() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '⏳ 正在连接，请稍后...';
+            
+            const url = 'https://ivmgttyeszqvlqnpqsrw.supabase.co';
+            const key = 'sb_publishable_owL4oYiO_0v7tVNArUgaaA_0TUN-o0V';
+            
+            try {
+                // 1. 测试网络是否能访问 supabase.com
+                resultDiv.innerHTML += '<br>📍 正在测试网络连通性...';
+                const netTest = await fetch('https://supabase.com', { mode: 'no-cors' });
+                resultDiv.innerHTML += '<br>✅ 网络连通性正常 (supabase.com 可访问)';
+            } catch(e) {
+                resultDiv.innerHTML += '<br>❌ 网络故障: 无法访问 supabase.com，请检查您的网络或防火墙设置。';
+                return;
+            }
+
+            // 2. 测试您的 Supabase 项目 API 是否可访问
+            try {
+                resultDiv.innerHTML += '<br>📍 正在连接您的 Supabase 项目...';
+                const apiTest = await fetch(`${url}/rest/v1/`, {
+                    headers: { 'apikey': key }
+                });
+                if (apiTest.ok) {
+                    resultDiv.innerHTML += `<br>✅ 成功连接到您的 Supabase 项目！(状态码: ${apiTest.status})`;
+                } else {
+                    resultDiv.innerHTML += `<br>❌ 连接失败！状态码: ${apiTest.status}<br>这表示您的项目 URL 或 KEY 可能不正确。`;
+                }
+            } catch(e) {
+                resultDiv.innerHTML += `<br>❌ 发生错误: ${e.message}<br>这表示您的项目 URL 可能不正确，或者网络无法访问 ${url}`;
+            }
+        }
+    </script>
+</body>
+</html>
