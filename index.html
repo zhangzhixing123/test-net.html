@@ -4,29 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Temu云端数据分析工具 Supabase版</title>
-    <!-- 双CDN兜底：国内+国外备用，确保脚本一定加载 -->
+    <!-- 仅保留国内稳定CDN，删除动态document.write加载逻辑，杜绝重复变量报错 -->
     <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-100-M/@supabase/supabase-js/2.33.1/supabase.min.js"></script>
-    <script>
-        // 兜底加载国外CDN，国内CDN失败自动重试
-        setTimeout(()=>{
-            if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');
-        },1500);
-    </script>
-
     <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-100-M/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script>
-        setTimeout(()=>{
-            if(!window.XLSX) document.write('<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"><\/script>');
-        },1500);
-    </script>
-
     <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-100-M/plotly.js/2.20.0/plotly.min.js"></script>
-    <script>
-        setTimeout(()=>{
-            if(!window.Plotly) document.write('<script src="https://cdn.plot.ly/plotly-2.20.0.min.js"><\/script>');
-        },1500);
-    </script>
-
     <style>
         * {box-sizing: border-box;font-family: "Microsoft Yahei",sans-serif;}
         body {margin:0;padding:20px;background:#f7f8fa;}
@@ -61,7 +42,7 @@
         </div>
     </div>
 
-    <div id="load-tip">页面加载中，请等待提示消失后再点击按钮...</div>
+    <div id="load-tip">页面加载中，请等待提示变为绿色后再点击按钮...</div>
 
     <div class="menu-bar" id="main-menu" style="display:flex;">
         <button class="menu-btn active" data-target="upload-panel">📤 上传月度数据入库</button>
@@ -143,7 +124,7 @@
 </div>
 
 <script>
-// 全局变量前置初始化，彻底消除变量提升报错
+// 全局变量一次性声明，无重复定义
 let currentExcelData = null;
 let alertConfig = {
     ORDER_MARGIN_RATE_THRESHOLD: 20,
@@ -158,25 +139,24 @@ const BUCKET_NAME = "files";
 const SUPABASE_URL = "https://odkkixjekbrlcubqoedh.supabase.co/rest/v1/";
 const SUPABASE_KEY = "sb_publishable_mvFibBRbdZbCgprH8k9Exg_352fXP2p";
 
-// 页面加载完成初始化
+// DOM加载完成后统一初始化，无动态插入脚本
 document.addEventListener('DOMContentLoaded', async function() {
     const tipDom = document.getElementById("load-tip");
     let waitCount = 0;
-    // 循环等待三个核心脚本全部加载完成
+    // 等待三个核心JS全部加载完成
     while ((!window.supabase || !window.XLSX || !window.Plotly) && waitCount < 30) {
         await new Promise(r => setTimeout(r, 200));
         waitCount++;
     }
     if (!window.supabase || !window.XLSX || !window.Plotly) {
-        tipDom.innerText = "脚本加载失败！请刷新页面或切换无痕浏览器";
+        tipDom.innerText = "脚本加载失败！切换手机热点/无痕窗口重试";
         tipDom.style.color = "red";
         return;
     }
-    // 初始化supabase客户端
+    // 仅执行一次客户端初始化，不会重复声明supabase
     supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     tipDom.innerText = "✅ 页面加载完成，所有按钮可正常点击";
     tipDom.style.color = "#10b981";
-    // 自动加载月份下拉列表
     refreshMonthSelect();
 });
 
@@ -194,7 +174,7 @@ function hideAllPanel(){
     document.querySelectorAll(".panel").forEach(p=>p.classList.remove("show"));
 }
 
-// 数据库通用函数
+// 云端通用方法
 async function getAllMonthTags(){
     if(!supabase){
         alert("等待页面加载完成后再操作！");
@@ -245,7 +225,7 @@ function renderManageTable(list){
     document.getElementById("manage-table-wrap").innerHTML = html;
 }
 
-// Excel文件上传预览
+// Excel上传预览
 document.getElementById("file-upload").onchange = async function(e){
     if(!window.XLSX){
         alert("Excel解析脚本未加载完成，等待页面加载完毕！");
@@ -270,7 +250,7 @@ document.getElementById("file-upload").onchange = async function(e){
     document.getElementById("file-preview").innerHTML = html;
 }
 
-// 下载空白模板
+// 下载模板
 function downloadTemplate(){
     if(!window.XLSX){
         alert("Excel脚本未加载完成！");
@@ -288,7 +268,7 @@ function downloadTemplate(){
     a.click();
 }
 
-// 保存数据到云端
+// 上传保存数据
 async function saveDataToCloud(){
     if(!supabase || !window.XLSX){
         alert("页面资源未加载完成，请等待顶部提示变为绿色✅再操作！");
@@ -343,7 +323,7 @@ async function saveDataToCloud(){
     refreshMonthSelect();
 }
 
-// 指标计算
+// 指标计算逻辑
 function calcMetrics(rawData, monthTag){
     let totalIncome = 0, goodsCost=0, materialCost=0, laborCost=0;
     let firstTrip=0, returnTrip=0, fine=0, platformDeduct=0;
