@@ -132,7 +132,8 @@ let alertConfig = {
 let isLogin = true;
 let supabase = null;
 const BUCKET_NAME = "files";
-const SUPABASE_URL = "https://odkkixjekbrlcubqoedh.supabase.co/rest/v1/";
+// 修复：只保留一层 /rest/v1，不再重复拼接
+const SUPABASE_URL = "https://odkkixjekbrlcubqoedh.supabase.co/rest/v1";
 const SUPABASE_KEY = "sb_publishable_mvFibBRbdZbCgprH8k9Exg_352fXP2p";
 
 // 内置XLSX解析库 支持xlsx
@@ -210,21 +211,23 @@ document.addEventListener('DOMContentLoaded', async function() {
         from: function(table){
             return {
                 select: async function(fields){
-                    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=${fields}`,{
+                    // 修复URL拼接：基础地址 + /表名，不再重复/rest/v1
+                    const res = await fetch(`${SUPABASE_URL}/${table}?select=${fields}`,{
                         headers: {apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
                     });
-                    return {data: await res.json()};
+                    const json = await res.json();
+                    return {data: Array.isArray(json) ? json : []};
                 },
                 eq: function(key,val){
                     return {
                         single: async function(){
-                            const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=*&${key}=eq.${val}`,{
+                            const res = await fetch(`${SUPABASE_URL}/${table}?select=*&${key}=eq.${val}`,{
                                 headers: {apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
                             });
                             return {data: await res.json()};
                         },
                         delete: async function(){
-                            await fetch(`${SUPABASE_URL}/rest/v1/${table}?${key}=eq.${val}`,{
+                            await fetch(`${SUPABASE_URL}/${table}?${key}=eq.${val}`,{
                                 method:"DELETE",
                                 headers: {apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
                             });
@@ -232,7 +235,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     };
                 },
                 upsert: async function(row){
-                    await fetch(`${SUPABASE_URL}/rest/v1/${table}`,{
+                    await fetch(`${SUPABASE_URL}/${table}`,{
                         method:"POST",
                         headers: {apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json"},
                         body: JSON.stringify(row)
@@ -247,15 +250,15 @@ document.addEventListener('DOMContentLoaded', async function() {
                         const form = new FormData();
                         const blob = new Blob([buf]);
                         form.append("file", blob);
-                        await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`,{
+                        await fetch(`${SUPABASE_URL.replace("/rest/v1","/storage/v1")}/object/${bucket}/${path}`,{
                             method:"POST",
                             headers: {apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`},
                             body: form
                         });
-                        return {error: null};
+                        return {error:null};
                     },
                     remove: async function(pathArr){
-                        await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}`,{
+                        await fetch(`${SUPABASE_URL.replace("/rest/v1","/storage/v1")}/object/${bucket}`,{
                             method:"DELETE",
                             headers: {apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json"},
                             body: JSON.stringify({paths:pathArr})
@@ -275,17 +278,17 @@ document.querySelectorAll(".menu-btn").forEach(btn=>{
         const targetId = btn.dataset.target;
         document.getElementById(targetId).classList.add("show");
         document.querySelectorAll(".menu-btn").forEach(b=>b.classList.remove("active"));
-        btn.classList.add("active");
     };
 });
 function hideAllPanel(){
     document.querySelectorAll(".panel").forEach(p=>p.classList.remove("show"));
 }
 
-// 读取月份列表
+// 读取月份列表（增加数组容错，解决map报错）
 async function getAllMonthTags(){
     const res = await supabase.from("monthly_metrics").select("month_tag, upload_time");
-    return res.data || [];
+    // 容错：确保一定返回数组，空数据返回[]
+    return Array.isArray(res.data) ? res.data : [];
 }
 async function refreshMonthSelect(){
     const list = await getAllMonthTags();
@@ -309,7 +312,8 @@ async function delMonthData(){
     const tag = document.getElementById("del-month-select").value;
     if(!confirm(`确定删除【${tag}】全部云端数据？无法恢复`)) return;
     const refRes = await supabase.from("monthly_file_ref").select("storage_file_path,month_tag");
-    const target = refRes.data.find(i=>i.month_tag === tag);
+    const refList = Array.isArray(refRes.data) ? refRes.data : [];
+    const target = refList.find(i=>i.month_tag === tag);
     if(target){
         await supabase.storage.from(BUCKET_NAME).remove([target.storage_file_path]);
     }
@@ -322,14 +326,12 @@ async function delMonthData(){
 // 渲染管理表格
 function renderManageTable(list){
     let html = `<table><tr><th>月份标签</th><th>上传时间</th></tr>`;
-    list.forEach(item=>{
-        html += `<tr><td>${item.month_tag}</td><td>${item.upload_time}</td></tr>`;
-    });
+    list.forEach(item=>html += `<tr><td>${item.month_tag}</td><td>${item.upload_time}</td></tr>`);
     html += `</table>`;
     document.getElementById("manage-table-wrap").innerHTML = html;
 }
 
-// 文件选择预览
+// Excel xlsx 文件上传预览
 document.getElementById("file-upload").onchange = async function(e){
     const file = e.target.files[0];
     if(!file) return;
@@ -342,9 +344,7 @@ document.getElementById("file-upload").onchange = async function(e){
     if(preview.length>0){
         const keys = Object.keys(preview[0]);
         html += `<tr>${keys.map(k=>`<th>${k}</th>`).join("")}</tr>`;
-        preview.forEach(row=>{
-            html += `<tr>${keys.map(k=>`<td>${row[k]??""}</td>`).join("")}</tr>`;
-        });
+        preview.forEach(row=>html += `<tr>${keys.map(k=>`<td>${row[k]??""}</td>`).join("")}</tr>`);
     }
     html += `</table>`;
     document.getElementById("file-preview").innerHTML = html;
@@ -352,7 +352,7 @@ document.getElementById("file-upload").onchange = async function(e){
 
 // 下载Excel模板
 function downloadTemplate(){
-    const cols = ["OA店铺名称","销售员","交易收入","商品成本","耗材成本","人工成本","头程运费","退回运费","消费者售后预留金额","消费者售后释放金额","店铺总计提金额","罚款金额","运营毛利","销售数量"];
+    const cols = ["OA店铺名称","销售员","交易收入","商品成本","耗材成本","人工成本","头程运费","退回运费","消费者售后预留金额","消费者售后释放金额","店铺总计提金额","罚款","运营毛利","销售数量"];
     const ws = {};
     ws['!ref'] = XLSX.utils.encode_range({s:{r:0,c:0},e:{r:0,c:cols.length-1}});
     cols.forEach((h,i)=>ws[XLSX.utils.encode_cell({r:0,c:i})] = {v:h});
@@ -365,7 +365,7 @@ function downloadTemplate(){
     a.click();
 }
 
-// 保存上传数据到云端
+// 保存数据到云端
 async function saveDataToCloud(){
     const tag = document.getElementById("month-tag").value.trim();
     if(!tag) return alert("请输入月份标签");
@@ -374,48 +374,29 @@ async function saveDataToCloud(){
     const ext = file.name.split(".").pop();
     const buf = await file.arrayBuffer();
     const storagePath = `month_data/${tag}/source.${ext}`;
-    const uploadRes = await supabase.storage.from(BUCKET_NAME).upload(storagePath, buf);
-    if(uploadRes.error) return document.getElementById("upload-msg").innerHTML = `<span class="warn">文件上传失败</span>`;
+    await supabase.storage.from(BUCKET_NAME).upload(storagePath, buf);
     const metrics = calcMetrics(currentExcelData, tag);
     const metricRow = {
-        month_tag: tag,
-        store_count: metrics.店铺数量,
-        total_income: metrics.交易收入,
-        order_gross_profit: metrics.订单毛利,
-        order_gross_rate: metrics.订单毛利率,
-        operate_gross_profit: metrics.运营毛利,
-        operate_gross_rate: metrics.运营毛利率,
-        goods_cost: metrics.商品成本,
-        material_cost: metrics.耗材成本,
-        labor_cost: metrics.人工成本,
-        first_trip_cost: metrics.头程运费,
-        return_trip_cost: metrics.退回运费,
-        fine_amount: metrics.罚款金额,
-        platform_deduct: metrics.店铺总计提金额,
-        after_sales_hold: metrics.消费者售后预留金额,
-        after_sales_release: metrics.消费者售后释放金额,
-        after_sales_net: metrics.售后净额,
-        total_quantity: metrics.销售数量总计,
-        unit_price: metrics.客单价,
-        unit_profit: metrics.均单利润,
-        unit_order_gross: metrics.单均订单毛利,
-        unit_goods_cost: metrics.单均商品成本,
+        month_tag: tag, store_count: metrics.店铺数量, total_income: metrics.交易收入,
+        order_gross_profit: metrics.订单毛利, order_gross_rate: metrics.订单毛利率,
+        operate_gross_profit: metrics.运营毛利, operate_gross_rate: metrics.运营毛利率,
+        goods_cost: metrics.商品成本, material_cost: metrics.耗材成本, labor_cost: metrics.人工成本,
+        first_trip_cost: metrics.头程运费, return_trip_cost: metrics.退回运费, fine_amount: metrics.罚款金额,
+        platform_deduct: metrics.店铺总计提金额, after_sales_hold: metrics.消费者售后预留金额,
+        after_sales_release: metrics.消费者售后释放金额, after_sales_net: metrics.售后净额,
+        total_quantity: metrics.销售数量总计, unit_price: metrics.客单价, unit_profit: metrics.均单利润,
+        unit_order_gross: metrics.单均订单毛利, unit_goods_cost: metrics.单均商品成本,
         upload_time: new Date().toISOString()
     };
     await supabase.from("monthly_metrics").upsert(metricRow);
     const shopJson = JSON.stringify(metrics.店铺数据);
     const salesJson = JSON.stringify(metrics.sales数据);
-    await supabase.from("monthly_file_ref").upsert({
-        month_tag: tag,
-        storage_file_path: storagePath,
-        shop_json: shopJson,
-        sales_json: salesJson
-    });
+    await supabase.from("monthly_file_ref").upsert({month_tag:tag, storage_file_path:storagePath, shop_json:shopJson, sales_json:salesJson});
     document.getElementById("upload-msg").innerHTML = `<span class="success">✅ ${tag} 数据已存入云端，支持.xlsx格式</span>`;
     refreshMonthSelect();
 }
 
-// 指标计算逻辑
+// 指标计算核心逻辑
 function calcMetrics(rawData, monthTag){
     let totalIncome = 0, goodsCost=0, materialCost=0, laborCost=0;
     let firstTrip=0, returnTrip=0, fine=0, platformDeduct=0;
@@ -436,30 +417,16 @@ function calcMetrics(rawData, monthTag){
         const og = Number(row.运营毛利||0);
         const qty = Number(row.销售数量||0);
         const lineOrderGross = inc - ft - mc - lc - gc - ah + ar;
-        totalIncome += inc;
-        goodsCost += gc;
-        materialCost += mc;
-        laborCost += lc;
-        firstTrip += ft;
-        returnTrip += rt;
-        fine += fi;
-        platformDeduct += pd;
-        afterHold += ah;
-        afterRelease += ar;
-        operateGross += og;
-        orderGross += lineOrderGross;
-        totalQty += qty;
+        totalIncome += inc; goodsCost += gc; materialCost += mc; laborCost += lc;
+        firstTrip += ft; returnTrip += rt; fine += fi; platformDeduct += pd;
+        afterHold += ah; afterRelease += ar; operateGross += og; orderGross += lineOrderGross; totalQty += qty;
         const shopName = row.OA店铺名称 || "未知店铺";
         if(!shopMap[shopName]) shopMap[shopName] = {income:0, orderGross:0, operateGross:0, qty:0};
-        shopMap[shopName].income += inc;
-        shopMap[shopName].orderGross += lineOrderGross;
-        shopMap[shopName].operateGross += og;
-        shopMap[shopName].qty += qty;
+        shopMap[shopName].income += inc; shopMap[shopName].orderGross += lineOrderGross;
+        shopMap[shopName].operateGross += og; shopMap[shopName].qty += qty;
         const salesName = row.销售员 || "未知销售";
         if(!salesMap[salesName]) salesMap[salesName] = {income:0, operateGross:0, qty:0};
-        salesMap[salesName].income += inc;
-        salesMap[salesName].operateGross += og;
-        salesMap[salesName].qty += qty;
+        salesMap[salesName].income += inc; salesMap[salesName].operateGross += og; salesMap[salesName].qty += qty;
     });
     const afterNet = afterHold - afterRelease;
     const orderRate = totalIncome>0 ? Number((orderGross / totalIncome * 100).toFixed(2)) : 0;
@@ -501,7 +468,7 @@ function calcMetrics(rawData, monthTag){
     };
 }
 
-// 单月数据+图表
+// 单月数据+图表渲染
 async function loadSingleMonthData(){
     const tag = document.getElementById("single-month-select").value;
     const mRes = await supabase.from("monthly_metrics").select("*").eq("month_tag", tag).single();
@@ -531,25 +498,11 @@ async function loadCompareData(){
     const mBRes = await supabase.from("monthly_metrics").select("*").eq("month_tag", tagB).single();
     const mA = mARes.data;
     const mB = mBRes.data;
-    const fields = [
-        ["交易收入", "total_income"],
-        ["订单毛利","order_gross_profit"],
-        ["运营毛利","operate_gross_profit"],
-        ["订单毛利率%","order_gross_rate"],
-        ["运营毛利率%","operate_gross_rate"],
-        ["总销量","total_quantity"]
-    ];
+    const fields = [["交易收入","total_income"],["订单毛利","order_gross_profit"],["运营毛利","operate_gross_profit"],["订单毛利率%","order_gross_rate"],["运营毛利率%","operate_gross_rate"],["总销量","total_quantity"]];
     let tableHtml = `<table><tr><th>指标</th><th>${tagA}</th><th>${tagB}</th><th>差值</th></tr>`;
     fields.forEach(([name, key])=>{
-        const valA = mA[key];
-        const valB = mB[key];
-        const diff = (valB - valA).toFixed(2);
-        tableHtml += `<tr>
-            <td>${name}</td>
-            <td>${valA}</td>
-            <td>${valB}</td>
-            <td style="color:${diff>0?'#10b981':'#ef4444'}">${diff}</td>
-        </tr>`;
+        const valA = mA[key]; const valB = mB[key]; const diff = (valB - valA).toFixed(2);
+        tableHtml += `<tr><td>${name}</td><td>${valA}</td><td>${valB}</td><td style="color:${diff>0?'#10b981':'#ef4444'}">${diff}</td></tr>`;
     });
     tableHtml += `</table>`;
     document.getElementById("compare-table-wrap").innerHTML = tableHtml;
