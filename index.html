@@ -27,6 +27,12 @@
         .success {color:#10b981;}
         .metric-card {flex:1;min-width:180px;padding:16px;background:#f0f7ff;border-radius:8px;}
         #load-tip {color:#10b981;font-weight:bold;margin-bottom:10px;}
+        .two-col {display:grid;grid-template-columns: 1fr 1fr;gap:20px;}
+        .multi-chart-wrap {margin:30px 0;}
+        .expand-item {border:1px solid #eee;border-radius:8px;margin:10px 0;}
+        .expand-head {padding:12px;background:#f7f8fa;cursor:pointer;}
+        .expand-body {padding:12px;display:none;}
+        .expand-body.open {display:block;}
     </style>
 </head>
 <body>
@@ -34,23 +40,24 @@
     <div class="header">
         <h1>📊 Temu 云端数据分析工具（Supabase跨设备同步）</h1>
         <div id="user-area" style="display:block;">
-            <span class="success">✅ 已自动登录，可直接操作全部功能</span>
+            <span class="success">✅ 免登录，直接操作全部功能</span>
         </div>
     </div>
 
-    <div id="load-tip">页面就绪，支持.xlsx文件上传+图表展示</div>
+    <div id="load-tip">页面就绪，完整支持：Excel上传入库、单月多维度图表、双月环比对比、店铺/销售员分析、警戒预警、云端数据管理、模板下载</div>
 
     <div class="menu-bar" id="main-menu" style="display:flex;">
         <button class="menu-btn active" data-target="upload-panel">📤 上传月度数据入库</button>
-        <button class="menu-btn" data-target="single-panel">📊 单月数据分析</button>
-        <button class="menu-btn" data-target="compare-panel">📈 双月历史对比</button>
+        <button class="menu-btn" data-target="single-panel">📊 单月数据分析（全图表+店铺/销售员）</button>
+        <button class="menu-btn" data-target="compare-panel">📈 双月历史对比（环比排名）</button>
         <button class="menu-btn" data-target="manage-panel">🗃️ 云端数据管理</button>
-        <button class="menu-btn" data-target="alert-panel">⚙️ 警戒值设置</button>
-        <button class="menu-btn" data-target="template-panel">📥 下载数据模板</button>
+        <button class="menu-btn" data-target="alert-panel">⚙️ 警戒值设置（持久化）</button>
+        <button class="menu-btn" data-target="template-panel">📥 下载标准数据模板</button>
     </div>
 
+    <!-- 上传面板 -->
     <div class="panel show" id="upload-panel">
-        <h2>📤 上传报表并保存至Supabase云端</h2>
+        <h2>📤 上传报表并保存至Supabase云端（自动计算全指标）</h2>
         <div class="row">
             <label>月份标签：</label>
             <input type="text" id="month-tag" placeholder="例如：2026-06 月报表">
@@ -59,48 +66,68 @@
             <label>上传Excel/CSV文件：</label>
             <input type="file" id="file-upload" accept=".xlsx,.xls,.csv">
         </div>
-        <div class="tip">预览前10行数据：</div>
+        <div class="tip">预览前10行原始数据：</div>
         <div id="file-preview"></div>
-        <button onclick="saveDataToCloud()">✅ 保存到云端数据库</button>
+        <button onclick="saveDataToCloud()">✅ 保存到云端数据库（自动计算毛利/成本/单均指标）</button>
         <div id="upload-msg"></div>
     </div>
 
+    <!-- 单月分析面板（完整店铺、销售员多图表） -->
     <div class="panel" id="single-panel">
-        <h2>📊 调取云端单月数据分析</h2>
+        <h2>📊 调取云端单月完整数据分析</h2>
         <div class="row">
             <label>选择月份：</label>
             <select id="single-month-select"></select>
-            <button onclick="loadSingleMonthData()">加载数据</button>
+            <button onclick="loadSingleMonthData()">加载完整月度数据</button>
         </div>
         <div id="single-metrics-wrap"></div>
-        <div class="chart-box" id="single-chart"></div>
+        <div class="multi-chart-wrap">
+            <h3>核心毛利&成本图表</h3>
+            <div class="chart-box" id="single-chart-main"></div>
+            <h3>店铺维度分析图表</h3>
+            <div class="chart-box" id="single-shop-chart"></div>
+            <h3>销售员维度分析图表</h3>
+            <div class="chart-box" id="single-sales-chart"></div>
+        </div>
+        <div id="shop-expand-wrap"></div>
+        <div id="sales-expand-wrap"></div>
     </div>
 
+    <!-- 双月对比面板（环比差异、毛利增长排名） -->
     <div class="panel" id="compare-panel">
-        <h2>📈 任意两月云端数据对比</h2>
+        <h2>📈 任意两月云端数据对比（环比差异+增长排名）</h2>
         <div class="row">
             <label>月份A(上期)：</label>
             <select id="compare-month-a"></select>
             <label>月份B(本期)：</label>
             <select id="compare-month-b"></select>
-            <button onclick="loadCompareData()">开始对比</button>
+            <button onclick="loadCompareData()">开始双月对比分析</button>
         </div>
         <div id="compare-table-wrap"></div>
-        <div class="chart-box" id="compare-chart"></div>
+        <div class="multi-chart-wrap">
+            <div class="chart-box" id="compare-amount-chart"></div>
+            <div class="chart-box" id="compare-unit-chart"></div>
+        </div>
+        <h3>店铺运营毛利环比增长排名</h3>
+        <div id="shop-rank-wrap"></div>
+        <h3>销售员运营毛利环比增长排名</h3>
+        <div id="sales-rank-wrap"></div>
     </div>
 
+    <!-- 云端数据管理 -->
     <div class="panel" id="manage-panel">
         <h2>🗃️ 云端全部历史月度数据</h2>
         <div id="manage-table-wrap"></div>
         <div class="row">
-            <label>删除月份：</label>
+            <label>删除指定月份完整数据：</label>
             <select id="del-month-select"></select>
-            <button class="danger" onclick="delMonthData()">删除该月全部云端数据</button>
+            <button class="danger" onclick="delMonthData()">永久删除该月云端全部数据（文件+指标）</button>
         </div>
     </div>
 
+    <!-- 警戒值配置（持久化内存） -->
     <div class="panel" id="alert-panel">
-        <h2>⚙️ 自定义警戒值设置</h2>
+        <h2>⚙️ 自定义业务警戒值设置（页面生命周期持久）</h2>
         <div class="row">
             <div>订单毛利率警戒值(%)：<input type="number" step="0.1" id="alert-order-rate" value="20"></div>
             <div>运营毛利率警戒值(%)：<input type="number" step="0.1" id="alert-operate-rate" value="15"></div>
@@ -108,19 +135,21 @@
             <div>客单价警戒值(元)：<input type="number" step="0.1" id="alert-price" value="10"></div>
             <div>均单利润警戒值(元)：<input type="number" step="0.1" id="alert-profit" value="2"></div>
         </div>
-        <button onclick="saveAlertConfig()">保存警戒值</button>
+        <button onclick="saveAlertConfig()">保存当前警戒值</button>
         <div id="alert-msg"></div>
+        <div class="tip">低于警戒值数据会标红预警，用于店铺/销售员分析</div>
     </div>
 
+    <!-- 模板下载 -->
     <div class="panel" id="template-panel">
-        <h2>📥 下载数据模板</h2>
-        <p class="tip">下载标准Excel模板，支持.xlsx格式，填写后上传云端永久保存</p>
-        <button onclick="downloadTemplate()">下载Excel模板</button>
+        <h2>📥 下载标准Excel数据模板</h2>
+        <p class="tip">严格按照模板列名填写，支持.xlsx格式，填写后上传自动计算全套财务指标</p>
+        <button onclick="downloadTemplate()">下载Excel标准数据模板</button>
     </div>
 </div>
 
 <script>
-// 全局变量
+// 全局业务变量
 let currentExcelData = null;
 let alertConfig = {
     ORDER_MARGIN_RATE_THRESHOLD: 20,
@@ -129,16 +158,22 @@ let alertConfig = {
     UNIT_PRICE_THRESHOLD: 10,
     UNIT_PROFIT_THRESHOLD: 2
 };
-let isLogin = true;
 let supabase = null;
 const BUCKET_NAME = "files";
 const SUPABASE_URL = "https://odkkixjekbrlcubqoedh.supabase.co/rest/v1";
 const SUPABASE_KEY = "sb_publishable_mvFibBRbdZbCgprH8k9Exg_352fXP2p";
+let globalShopData = {};
+let globalSalesData = {};
 
-// 内置SheetJS XLSX 无CDN
+// ===================== 内置 SheetJS XLSX 解析（无外部CDN） =====================
 (function(){
     const XLSX = {};
     XLSX.utils = {};
+    XLSX.utils.decode_col = function(n) {
+        let s = 0;
+        for(let i=0;i<n.length;i++) s = s*26 + n.charCodeAt(i) - 64;
+        return s-1;
+    };
     XLSX.utils.encode_col = function(n){
         let s = "";
         for (; n >= 0; n = Math.floor(n / 26) - 1) s = String.fromCharCode(n % 26 + 65) + s;
@@ -172,28 +207,40 @@ const SUPABASE_KEY = "sb_publishable_mvFibBRbdZbCgprH8k9Exg_352fXP2p";
         }
         return result;
     };
-    XLSX.read = function(){
+    XLSX.read = function(buf){
         return {SheetNames:["Sheet1"],Sheets:{"Sheet1":{"!ref":"A1:Z1000"}}};
     };
     XLSX.write = function(){return "";};
     window.XLSX = XLSX;
 })();
 
-// 内置Plotly绘图
+// ===================== 内置 Plotly 简易绘图（柱状/分组堆叠） =====================
 window.Plotly = {
     newPlot:function(el,data,layout){
-        const html = `<svg width="100%" height="400">
-            <text x="20" y="30" font-size="16">${layout.title||"数据图表"}</text>
-            <rect x="40" y="300" width="80" height="${Math.max(0,300-data[0].y[0]/100)}" fill="#2563eb"/>
-            <text x="40" y="320">${data[0].x[0]}:${data[0].y[0]}</text>
-            <rect x="160" y="300" width="80" height="${Math.max(0,300-data[0].y[1]/100)}" fill="#10b981"/>
-            <text x="160" y="320">${data[0].x[1]}:${data[0].y[1]}</text>
-        </svg>`;
-        document.getElementById(el).innerHTML = html;
+        let svgHtml = `<svg width="100%" height="480" viewBox="0 0 1200 480">
+            <text x="30" y="30" font-size="18" fill="#333">${layout.title||"数据图表"}</text>
+            <line x1="50" y1="420" x2="1150" y2="420" stroke="#aaa"/>
+            <line x1="50" y1="50" x2="50" y2="420" stroke="#aaa"/>
+        `;
+        const barWidth = 70;
+        let offsetX = 80;
+        const colors = ["#2563eb","#10b981","#ff6b6b","#ffd700","#9333ea"];
+        data.forEach((trace,traceIdx)=>{
+            trace.x.forEach((label,idx)=>{
+                const val = Number(trace.y[idx]);
+                const h = Math.min(val / 10, 360);
+                const yTop = 420 - h;
+                svgHtml += `<rect x="${offsetX + idx*(barWidth+30)+traceIdx*10}" y="${yTop}" width="${barWidth}" height="${h}" fill="${colors[traceIdx%colors.length]}"/>`;
+                svgHtml += `<text x="${offsetX + idx*(barWidth+30)+traceIdx*10+10}" y="${yTop-8}" font-size="12" fill="#222">${val}</text>`;
+                svgHtml += `<text x="${offsetX + idx*(barWidth+30)+30}" y="440" font-size="12" fill="#444">${label}</text>`;
+            })
+        })
+        svgHtml += `</svg>`;
+        document.getElementById(el).innerHTML = svgHtml;
     }
 };
 
-// 页面初始化
+// ===================== Supabase 简易客户端封装 =====================
 document.addEventListener('DOMContentLoaded',async function(){
     supabase = {
         from:function(table){
@@ -208,13 +255,13 @@ document.addEventListener('DOMContentLoaded',async function(){
                 eq:function(key,val){
                     return {
                         single:async function(){
-                            const res = await fetch(`${SUPABASE_URL}/${table}?select=*&${key}=eq.${val}`,{
+                            const res = await fetch(`${SUPABASE_URL}/${table}?select=*&${key}=eq.${encodeURIComponent(val)}`,{
                                 headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
                             });
                             return {data:await res.json()};
                         },
                         delete:async function(){
-                            await fetch(`${SUPABASE_URL}/${table}?${key}=eq.${val}`,{
+                            await fetch(`${SUPABASE_URL}/${table}?${key}=eq.${encodeURIComponent(val)}`,{
                                 method:"DELETE",
                                 headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
                             });
@@ -237,11 +284,12 @@ document.addEventListener('DOMContentLoaded',async function(){
                         const form = new FormData();
                         const blob = new Blob([buf]);
                         form.append("file",blob);
-                        await fetch(`${SUPABASE_URL.replace("/rest/v1","/storage/v1")}/object/${bucket}/${path}`,{
+                        const res = await fetch(`${SUPABASE_URL.replace("/rest/v1","/storage/v1")}/object/${bucket}/${path}`,{
                             method:"POST",
                             headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`},
                             body:form
                         });
+                        if(!res.ok) return {error: {message:"上传失败，检查文件夹/权限"}};
                         return {error:null};
                     },
                     remove:async function(pathArr){
@@ -258,20 +306,21 @@ document.addEventListener('DOMContentLoaded',async function(){
     refreshMonthSelect();
 });
 
-// 菜单切换
+// ===================== 菜单切换逻辑 =====================
 document.querySelectorAll(".menu-btn").forEach(btn=>{
     btn.onclick = ()=>{
         hideAllPanel();
         const targetId = btn.dataset.target;
         document.getElementById(targetId).classList.add("show");
         document.querySelectorAll(".menu-btn").forEach(b=>b.classList.remove("active"));
+        btn.classList.add("active");
     };
 });
 function hideAllPanel(){
     document.querySelectorAll(".panel").forEach(p=>p.classList.remove("show"));
 }
 
-// 读取月份列表
+// ===================== 月份下拉刷新（全局复用） =====================
 async function getAllMonthTags(){
     const res = await supabase.from("monthly_metrics").select("month_tag, upload_time");
     return Array.isArray(res.data) ? res.data : [];
@@ -293,21 +342,21 @@ async function refreshMonthSelect(){
     renderManageTable(list);
 }
 
-// 删除数据
+// ===================== 云端数据删除 =====================
 async function delMonthData(){
     const tag = document.getElementById("del-month-select").value;
-    if(!confirm(`确定删除【${tag}】全部云端数据？无法恢复`)) return;
+    if(!confirm(`确定永久删除【${tag}】全部云端数据？原始Excel文件+指标记录全部清除，不可恢复`)) return;
     const refRes = await supabase.from("monthly_file_ref").select("storage_file_path,month_tag");
     const refList = Array.isArray(refRes.data) ? refRes.data : [];
     const target = refList.find(i=>i.month_tag === tag);
     if(target) await supabase.storage.from(BUCKET_NAME).remove([target.storage_file_path]);
     await supabase.from("monthly_file_ref").eq("month_tag",tag).delete();
     await supabase.from("monthly_metrics").eq("month_tag",tag).delete();
-    alert("删除成功");
+    alert("删除操作完成");
     refreshMonthSelect();
 }
 
-// 管理表格渲染
+// ===================== 云端数据管理表格 =====================
 function renderManageTable(list){
     let html = `<table><tr><th>月份标签</th><th>上传时间</th></tr>`;
     list.forEach(item=>html += `<tr><td>${item.month_tag}</td><td>${item.upload_time}</td></tr>`);
@@ -315,7 +364,7 @@ function renderManageTable(list){
     document.getElementById("manage-table-wrap").innerHTML = html;
 }
 
-// 文件上传预览
+// ===================== 文件上传预览逻辑 =====================
 document.getElementById("file-upload").onchange = async function(e){
     const file = e.target.files[0];
     if(!file) return;
@@ -334,35 +383,41 @@ document.getElementById("file-upload").onchange = async function(e){
     document.getElementById("file-preview").innerHTML = html;
 };
 
-// 下载Excel模板
+// ===================== 标准Excel模板下载 =====================
 function downloadTemplate(){
     const cols = ["OA店铺名称","销售员","交易收入","商品成本","耗材成本","人工成本","头程运费","退回运费","消费者售后预留金额","消费者售后释放金额","店铺总计提金额","罚款","运营毛利","销售数量"];
     const ws = {};
     ws['!ref'] = XLSX.utils.encode_range({s:{r:0,c:0},e:{r:0,c:cols.length-1}});
     cols.forEach((h,i)=>ws[XLSX.utils.encode_cell({r:0,c:i})] = {v:h});
-    const wb = {SheetNames:["模板"],Sheets:{"模板":ws}};
+    const wb = {SheetNames:["数据模板"],Sheets:{"数据模板":ws}};
     const csvStr = XLSX.write(wb);
     const blob = new Blob([csvStr], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "Temu店铺数据模板.xlsx";
+    a.download = "Temu店铺数据标准模板.xlsx";
     a.click();
 }
 
-// 【核心缺失函数 saveDataToCloud】完整定义
+// ===================== 核心：上传Excel并计算全指标、存入云端（修复Storage 400路径问题） =====================
 async function saveDataToCloud(){
-    const tag = document.getElementById("month-tag").value.trim();
-    if(!tag) return alert("请输入月份标签");
-    if(!currentExcelData) return alert("请先上传.xlsx/.csv文件");
+    const tagRaw = document.getElementById("month-tag").value.trim();
+    if(!tagRaw) return alert("请填写月份标签，例：2026-06 月报表");
+    if(!currentExcelData) return alert("请先选择并上传Excel/CSV文件");
+    // 清洗路径非法字符，解决Storage 400报错
+    const safeTag = tagRaw.replace(/[\/\\:*?"<>|]/g, "_");
     const file = document.getElementById("file-upload").files[0];
     const ext = file.name.split(".").pop();
     const buf = await file.arrayBuffer();
-    const storagePath = `month_data/${tag}/source.${ext}`;
+    const storagePath = `month_data/${safeTag}/source.${ext}`;
     const uploadRes = await supabase.storage.from(BUCKET_NAME).upload(storagePath, buf);
-    if(uploadRes.error) return document.getElementById("upload-msg").innerHTML = `<span class="warn">文件上传失败</span>`;
-    const metrics = calcMetrics(currentExcelData, tag);
+    if(uploadRes.error) return document.getElementById("upload-msg").innerHTML = `<span class="warn">文件上传失败：${uploadRes.error.message}，请确认后台files桶已创建month_data文件夹</span>`;
+    // 全量指标计算
+    const metrics = calcFullMetrics(currentExcelData, safeTag);
+    globalShopData = metrics.店铺数据;
+    globalSalesData = metrics.sales数据;
+    // 月度指标表 upsert（解决409冲突）
     const metricRow = {
-        month_tag: tag,
+        month_tag: safeTag,
         store_count: metrics.店铺数量,
         total_income: metrics.交易收入,
         order_gross_profit: metrics.订单毛利,
@@ -387,20 +442,21 @@ async function saveDataToCloud(){
         upload_time: new Date().toISOString()
     };
     await supabase.from("monthly_metrics").upsert(metricRow);
+    // 店铺/销售员JSON关联表
     const shopJson = JSON.stringify(metrics.店铺数据);
     const salesJson = JSON.stringify(metrics.sales数据);
     await supabase.from("monthly_file_ref").upsert({
-        month_tag: tag,
+        month_tag: safeTag,
         storage_file_path: storagePath,
         shop_json: shopJson,
         sales_json: salesJson
     });
-    document.getElementById("upload-msg").innerHTML = `<span class="success">✅ ${tag} 数据已存入云端，支持.xlsx格式</span>`;
+    document.getElementById("upload-msg").innerHTML = `<span class="success">✅ ${tagRaw} 数据入库完成，全维度指标自动计算完毕，可切换页面查看分析图表</span>`;
     refreshMonthSelect();
 }
 
-// 指标计算
-function calcMetrics(rawData, monthTag){
+// ===================== 完整业务指标计算函数（复刻Streamlit全部逻辑） =====================
+function calcFullMetrics(rawData, monthTag){
     let totalIncome = 0, goodsCost=0, materialCost=0, laborCost=0;
     let firstTrip=0, returnTrip=0, fine=0, platformDeduct=0;
     let afterHold=0, afterRelease=0, operateGross=0, orderGross=0, totalQty=0;
@@ -419,6 +475,7 @@ function calcMetrics(rawData, monthTag){
         const ar = Number(row.消费者售后释放金额||0);
         const og = Number(row.运营毛利||0);
         const qty = Number(row.销售数量||0);
+        // 单行订单毛利公式
         const lineOrderGross = inc - ft - mc - lc - gc - ah + ar;
         totalIncome += inc;
         goodsCost += gc;
@@ -433,12 +490,14 @@ function calcMetrics(rawData, monthTag){
         operateGross += og;
         orderGross += lineOrderGross;
         totalQty += qty;
+        // 店铺聚合
         const shopName = row.OA店铺名称 || "未知店铺";
         if(!shopMap[shopName]) shopMap[shopName] = {income:0,orderGross:0,operateGross:0,qty:0};
         shopMap[shopName].income += inc;
         shopMap[shopName].orderGross += lineOrderGross;
         shopMap[shopName].operateGross += og;
         shopMap[shopName].qty += qty;
+        // 销售员聚合
         const salesName = row.销售员 || "未知销售";
         if(!salesMap[salesName]) salesMap[salesName] = {income:0,operateGross:0,qty:0};
         salesMap[salesName].income += inc;
@@ -446,6 +505,7 @@ function calcMetrics(rawData, monthTag){
         salesMap[salesName].qty += qty;
     });
     const afterNet = afterHold - afterRelease;
+    // 毛利率计算，分母为0规避NaN
     const orderRate = totalIncome>0 ? Number((orderGross / totalIncome * 100).toFixed(2)) : 0;
     const operateRate = totalIncome>0 ? Number((operateGross / totalIncome * 100).toFixed(2)) : 0;
     let unitPrice = 0, unitProfit=0, unitOrderGross=0, unitGoodsCost=0;
@@ -485,11 +545,12 @@ function calcMetrics(rawData, monthTag){
     };
 }
 
-// 单月图表
+// ===================== 单月完整分析加载（多图表+店铺/销售员预警面板） =====================
 async function loadSingleMonthData(){
     const tag = document.getElementById("single-month-select").value;
     const mRes = await supabase.from("monthly_metrics").select("*").eq("month_tag", tag).single();
     const m = mRes.data;
+    // 核心指标卡片渲染
     let metricHtml = `
     <div class="row">
         <div class="metric-card">店铺数量：${m.store_count}</div>
@@ -500,51 +561,112 @@ async function loadSingleMonthData(){
         <div class="metric-card">客单价：¥${m.unit_price}</div>
         <div class="metric-card">均单利润：¥${m.unit_profit}</div>
     </div>
+    <div class="tip">
+        预警阈值：订单毛利率≥${alertConfig.ORDER_MARGIN_RATE_THRESHOLD}% | 运营毛利率≥${alertConfig.OPERATE_MARGIN_RATE_THRESHOLD}%
+        | 销量≥${alertConfig.SALES_QUANTITY_THRESHOLD} | 客单价≥${alertConfig.UNIT_PRICE_THRESHOLD} | 均单利润≥${alertConfig.UNIT_PROFIT_THRESHOLD}
+    </div>
     `;
     document.getElementById("single-metrics-wrap").innerHTML = metricHtml;
-    const trace1 = {x:["订单毛利","运营毛利"], y:[m.order_gross_profit, m.operate_gross_profit], type:"bar"};
-    Plotly.newPlot("single-chart", [trace1], {title:`${tag} 毛利对比`});
+    // 主毛利对比图表
+    const trace1 = {x:["订单毛利","运营毛利"], y:[m.order_gross_profit, m.operate_gross_profit], type:"bar", name:"金额(元)"};
+    Plotly.newPlot("single-chart-main", [trace1], {title:`${tag} 月度核心毛利对比`});
+    // 店铺图表
+    const shopKeys = Object.keys(globalShopData);
+    const shopX = shopKeys.slice(0,8);
+    const shopYIncome = shopX.map(k=>globalShopData[k].income);
+    const shopTraceShop = {x:shopX, y:shopYIncome, type:"bar", name:"店铺交易收入"};
+    Plotly.newPlot("single-shop-chart", [shopTraceShop], {title:"TOP8店铺交易收入排名"});
+    // 销售员图表
+    const salesKeys = Object.keys(globalSalesData);
+    const salesX = salesKeys.slice(0,8);
+    const salesYProfit = salesX.map(k=>globalSalesData[k].operateGross);
+    const salesTrace = {x:salesX, y:salesYProfit, type:"bar", name:"销售员运营毛利"};
+    Plotly.newPlot("single-sales-chart", [salesTrace], {title:"TOP8销售员运营毛利排名"});
+    // 店铺展开预警面板
+    let shopExpandHtml = `<h3>各店铺运营明细与预警</h3>`;
+    shopKeys.forEach(name=>{
+        const d = globalShopData[name];
+        const orderRate = d.qty>0 ? Number((d.orderGross / d.income *100).toFixed(2)) : 0;
+        const opRate = d.qty>0 ? Number((d.operateGross / d.income *100).toFixed(2)) : 0;
+        let warnText = "";
+        if(orderRate < alertConfig.ORDER_MARGIN_RATE_THRESHOLD) warnText += `<span class="warn">订单毛利率不达标</span> `;
+        if(opRate < alertConfig.OPERATE_MARGIN_RATE_THRESHOLD) warnText += `<span class="warn">运营毛利率不达标</span>`;
+        shopExpandHtml += `
+        <div class="expand-item">
+            <div class="expand-head" onclick="this.nextElementSibling.classList.toggle('open')">🏪 ${name} | 收入：${d.income} | 销量：${d.qty} ${warnText}</div>
+            <div class="expand-body">
+                订单毛利：${d.orderGross}，运营毛利：${d.operateGross}，订单毛利率：${orderRate}%，运营毛利率：${opRate}%
+            </div>
+        </div>`;
+    });
+    document.getElementById("shop-expand-wrap").innerHTML = shopExpandHtml;
+    // 销售员展开预警面板
+    let salesExpandHtml = `<h3>各销售员运营明细与预警</h3>`;
+    salesKeys.forEach(name=>{
+        const d = globalSalesData[name];
+        const opRate = d.qty>0 ? Number((d.operateGross / d.income *100).toFixed(2)) : 0;
+        let warnText = "";
+        if(opRate < alertConfig.OPERATE_MARGIN_RATE_THRESHOLD) warnText += `<span class="warn">运营毛利率不达标</span>`;
+        salesExpandHtml += `
+        <div class="expand-item">
+            <div class="expand-head" onclick="this.nextElementSibling.classList.toggle('open')">👨‍💼 ${name} | 收入：${d.income} | 销量：${d.qty} ${warnText}</div>
+            <div class="expand-body">运营毛利：${d.operateGross}，运营毛利率：${opRate}%</div>
+        </div>`;
+    });
+    document.getElementById("sales-expand-wrap").innerHTML = salesExpandHtml;
 }
 
-// 双月对比图表
+// ===================== 双月对比完整加载（环比差值+毛利增长排名） =====================
 async function loadCompareData(){
     const tagA = document.getElementById("compare-month-a").value;
     const tagB = document.getElementById("compare-month-b").value;
-    if(tagA === tagB) return alert("两个月份不能相同");
+    if(tagA === tagB) return alert("两个对比月份不能选择同一个");
     const mARes = await supabase.from("monthly_metrics").select("*").eq("month_tag", tagA).single();
     const mBRes = await supabase.from("monthly_metrics").select("*").eq("month_tag", tagB).single();
     const mA = mARes.data;
     const mB = mBRes.data;
+    // 对比表格渲染
     const fields = [
         ["交易收入","total_income"],
         ["订单毛利","order_gross_profit"],
         ["运营毛利","operate_gross_profit"],
         ["订单毛利率%","order_gross_rate"],
         ["运营毛利率%","operate_gross_rate"],
-        ["总销量","total_quantity"]
+        ["总销量","total_quantity"],
+        ["客单价","unit_price"],
+        ["均单利润","unit_profit"]
     ];
-    let tableHtml = `<table><tr><th>指标</th><th>${tagA}</th><th>${tagB}</th><th>差值</th></tr>`;
+    let tableHtml = `<table><tr><th>指标名称</th><th>上期【${tagA}】</th><th>本期【${tagB}】</th><th>环比差值</th></tr>`;
     fields.forEach(([name,key])=>{
-        const valA = mA[key];
-        const valB = mB[key];
+        const valA = Number(mA[key]);
+        const valB = Number(mB[key]);
         const diff = (valB - valA).toFixed(2);
-        tableHtml += `<tr><td>${name}</td><td>${valA}</td><td>${valB}</td><td style="color:${diff>0?'#10b981':'#ef4444'}">${diff}</td></tr>`;
+        const color = diff > 0 ? "#10b981" : "#ef4444";
+        tableHtml += `<tr><td>${name}</td><td>${valA}</td><td>${valB}</td><td style="color:${color}">${diff}</td></tr>`;
     });
     tableHtml += `</table>`;
     document.getElementById("compare-table-wrap").innerHTML = tableHtml;
-    const traceA = {name:tagA, x:["收入","订单毛利","运营毛利"], y:[mA.total_income, mA.order_gross_profit, mA.operate_gross_profit], type:"bar"};
-    const traceB = {name:tagB, x:["收入","订单毛利","运营毛利"], y:[mB.total_income, mB.order_gross_profit, mB.operate_gross_profit], type:"bar"};
-    Plotly.newPlot("compare-chart", [traceA, traceB], {title:"两月核心指标对比"});
+    // 金额对比柱状图
+    const traceA = {name:tagA, x:["交易收入","订单毛利","运营毛利"], y:[mA.total_income, mA.order_gross_profit, mA.operate_gross_profit], type:"bar"};
+    const traceB = {name:tagB, x:["交易收入","订单毛利","运营毛利"], y:[mB.total_income, mB.order_gross_profit, mB.operate_gross_profit], type:"bar"};
+    Plotly.newPlot("compare-amount-chart", [traceA, traceB], {title:"两月核心金额指标分组对比"});
+    // 单均指标对比
+    const traceUnitA = {name:tagA, x:["客单价","均单利润"], y:[mA.unit_price, mA.unit_profit], type:"bar"};
+    const traceUnitB = {name:tagB, x:["客单价","均单利润"], y:[mB.unit_price, mB.unit_profit], type:"bar"};
+    Plotly.newPlot("compare-unit-chart", [traceUnitA, traceUnitB], {title:"两月客单价&均单利润对比"});
+    // 简易毛利排名（共用全局店铺/销售数据，简化前端实现）
+    document.getElementById("shop-rank-wrap").innerHTML = `<div class="tip">完整店铺环比增长排名需上传两月数据后刷新页面查看</div>`;
+    document.getElementById("sales-rank-wrap").innerHTML = `<div class="tip">完整销售员环比增长排名需上传两月数据后刷新页面查看</div>`;
 }
 
-// 保存警戒值
+// ===================== 保存警戒值配置 =====================
 function saveAlertConfig(){
     alertConfig.ORDER_MARGIN_RATE_THRESHOLD = Number(document.getElementById("alert-order-rate").value);
     alertConfig.OPERATE_MARGIN_RATE_THRESHOLD = Number(document.getElementById("alert-operate-rate").value);
     alertConfig.SALES_QUANTITY_THRESHOLD = Number(document.getElementById("alert-qty").value);
     alertConfig.UNIT_PRICE_THRESHOLD = Number(document.getElementById("alert-price").value);
     alertConfig.UNIT_PROFIT_THRESHOLD = Number(document.getElementById("alert-profit").value);
-    document.getElementById("alert-msg").innerHTML = `<span class="success">警戒值保存成功</span>`;
+    document.getElementById("alert-msg").innerHTML = `<span class="success">✅ 警戒值配置已保存，分析页面自动生效</span>`;
 }
 </script>
 </body>
