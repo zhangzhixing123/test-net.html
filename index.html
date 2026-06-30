@@ -4,10 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Temu云端数据分析工具 Supabase版</title>
-    <!-- 国内稳定CDN，调整加载顺序，确保supabase优先加载 -->
+    <!-- 双CDN兜底：国内+国外备用，确保脚本一定加载 -->
     <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-100-M/@supabase/supabase-js/2.33.1/supabase.min.js"></script>
+    <script>
+        // 兜底加载国外CDN，国内CDN失败自动重试
+        setTimeout(()=>{
+            if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');
+        },1500);
+    </script>
+
     <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-100-M/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        setTimeout(()=>{
+            if(!window.XLSX) document.write('<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"><\/script>');
+        },1500);
+    </script>
+
     <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-100-M/plotly.js/2.20.0/plotly.min.js"></script>
+    <script>
+        setTimeout(()=>{
+            if(!window.Plotly) document.write('<script src="https://cdn.plot.ly/plotly-2.20.0.min.js"><\/script>');
+        },1500);
+    </script>
+
     <style>
         * {box-sizing: border-box;font-family: "Microsoft Yahei",sans-serif;}
         body {margin:0;padding:20px;background:#f7f8fa;}
@@ -30,6 +49,7 @@
         .warn {color:#ef4444;}
         .success {color:#10b981;}
         .metric-card {flex:1;min-width:180px;padding:16px;background:#f0f7ff;border-radius:8px;}
+        #load-tip {color:#ff6600;font-weight:bold;margin-bottom:10px;}
     </style>
 </head>
 <body>
@@ -40,6 +60,8 @@
             <span class="success">✅ 已自动登录，可直接操作全部功能</span>
         </div>
     </div>
+
+    <div id="load-tip">页面加载中，请等待提示消失后再点击按钮...</div>
 
     <div class="menu-bar" id="main-menu" style="display:flex;">
         <button class="menu-btn active" data-target="upload-panel">📤 上传月度数据入库</button>
@@ -121,7 +143,7 @@
 </div>
 
 <script>
-// ========== 1. 优先初始化全局变量，解决变量未初始化报错 ==========
+// 全局变量前置初始化，彻底消除变量提升报错
 let currentExcelData = null;
 let alertConfig = {
     ORDER_MARGIN_RATE_THRESHOLD: 20,
@@ -131,30 +153,34 @@ let alertConfig = {
     UNIT_PROFIT_THRESHOLD: 2
 };
 let isLogin = true;
-const BUCKET_NAME = "files";
-
-// ========== 2. 等待supabase脚本加载完成再初始化客户端 ==========
 let supabase = null;
+const BUCKET_NAME = "files";
+const SUPABASE_URL = "https://odkkixjekbrlcubqoedh.supabase.co/rest/v1/";
+const SUPABASE_KEY = "sb_publishable_mvFibBRbdZbCgprH8k9Exg_352fXP2p";
+
+// 页面加载完成初始化
 document.addEventListener('DOMContentLoaded', async function() {
-    // 等待supabase全局对象就绪
+    const tipDom = document.getElementById("load-tip");
     let waitCount = 0;
-    while (!window.supabase && waitCount < 20) {
-        await new Promise(r => setTimeout(r, 100));
+    // 循环等待三个核心脚本全部加载完成
+    while ((!window.supabase || !window.XLSX || !window.Plotly) && waitCount < 30) {
+        await new Promise(r => setTimeout(r, 200));
         waitCount++;
     }
-    if (!window.supabase) {
-        alert("Supabase 脚本加载失败，请刷新页面重试");
+    if (!window.supabase || !window.XLSX || !window.Plotly) {
+        tipDom.innerText = "脚本加载失败！请刷新页面或切换无痕浏览器";
+        tipDom.style.color = "red";
         return;
     }
-    // 初始化客户端
-    const SUPABASE_URL = "https://odkkixjekbrlcubqoedh.supabase.co/rest/v1/";
-    const SUPABASE_KEY = "sb_publishable_mvFibBRbdZbCgprH8k9Exg_352fXP2p";
+    // 初始化supabase客户端
     supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    // 页面加载完成自动刷新月份列表
+    tipDom.innerText = "✅ 页面加载完成，所有按钮可正常点击";
+    tipDom.style.color = "#10b981";
+    // 自动加载月份下拉列表
     refreshMonthSelect();
 });
 
-// ========== 菜单切换 ==========
+// 菜单切换
 document.querySelectorAll(".menu-btn").forEach(btn=>{
     btn.onclick = ()=>{
         hideAllPanel();
@@ -168,9 +194,12 @@ function hideAllPanel(){
     document.querySelectorAll(".panel").forEach(p=>p.classList.remove("show"));
 }
 
-// ========== Supabase 通用函数 ==========
+// 数据库通用函数
 async function getAllMonthTags(){
-    if(!supabase) return [];
+    if(!supabase){
+        alert("等待页面加载完成后再操作！");
+        return [];
+    }
     const {data} = await supabase.from("monthly_metrics").select("month_tag, upload_time").order("month_tag", {ascending:false});
     return data || [];
 }
@@ -191,7 +220,10 @@ async function refreshMonthSelect(){
     renderManageTable(list);
 }
 async function delMonthData(){
-    if(!supabase) return alert("云端客户端未加载完成，请等待");
+    if(!supabase){
+        alert("等待页面加载完成后再操作！");
+        return;
+    }
     const tag = document.getElementById("del-month-select").value;
     if(!confirm(`确定删除【${tag}】全部云端数据？无法恢复`)) return;
     const {data:refData} = await supabase.from("monthly_file_ref").select("storage_file_path").eq("month_tag", tag);
@@ -213,8 +245,12 @@ function renderManageTable(list){
     document.getElementById("manage-table-wrap").innerHTML = html;
 }
 
-// ========== Excel 文件解析 & 模板下载 ==========
+// Excel文件上传预览
 document.getElementById("file-upload").onchange = async function(e){
+    if(!window.XLSX){
+        alert("Excel解析脚本未加载完成，等待页面加载完毕！");
+        return;
+    }
     const file = e.target.files[0];
     if(!file) return;
     const buf = await file.arrayBuffer();
@@ -233,7 +269,13 @@ document.getElementById("file-upload").onchange = async function(e){
     html += `</table>`;
     document.getElementById("file-preview").innerHTML = html;
 }
+
+// 下载空白模板
 function downloadTemplate(){
+    if(!window.XLSX){
+        alert("Excel脚本未加载完成！");
+        return;
+    }
     const cols = ["OA店铺名称","销售员","交易收入","商品成本","耗材成本","人工成本","头程运费","退回运费","消费者售后预留金额","消费者售后释放金额","店铺总计提金额","罚款金额","运营毛利","销售数量"];
     const ws = XLSX.utils.aoa_to_sheet([cols]);
     const wb = XLSX.utils.book_new();
@@ -246,9 +288,12 @@ function downloadTemplate(){
     a.click();
 }
 
-// ========== 云端保存月度数据 ==========
+// 保存数据到云端
 async function saveDataToCloud(){
-    if(!supabase) return alert("云端客户端加载未完成，请等待页面加载完毕再操作");
+    if(!supabase || !window.XLSX){
+        alert("页面资源未加载完成，请等待顶部提示变为绿色✅再操作！");
+        return;
+    }
     const tag = document.getElementById("month-tag").value.trim();
     if(!tag) return alert("请输入月份标签");
     if(!currentExcelData) return alert("请先上传Excel/CSV文件");
@@ -298,7 +343,7 @@ async function saveDataToCloud(){
     refreshMonthSelect();
 }
 
-// ========== 指标计算逻辑 ==========
+// 指标计算
 function calcMetrics(rawData, monthTag){
     let totalIncome = 0, goodsCost=0, materialCost=0, laborCost=0;
     let firstTrip=0, returnTrip=0, fine=0, platformDeduct=0;
@@ -384,9 +429,12 @@ function calcMetrics(rawData, monthTag){
     }
 }
 
-// ========== 单月数据加载 ==========
+// 单月数据加载
 async function loadSingleMonthData(){
-    if(!supabase) return alert("云端客户端未加载完成");
+    if(!supabase || !window.Plotly){
+        alert("页面资源未加载完成，请等待顶部提示变为绿色✅再操作！");
+        return;
+    }
     const tag = document.getElementById("single-month-select").value;
     const {data:metricData} = await supabase.from("monthly_metrics").select("*").eq("month_tag", tag).single();
     const {data:refData} = await supabase.from("monthly_file_ref").select("storage_file_path, shop_json, sales_json").eq("month_tag", tag).single();
@@ -407,9 +455,12 @@ async function loadSingleMonthData(){
     Plotly.newPlot("single-chart", [trace1], {title:`${tag} 毛利对比`});
 }
 
-// ========== 双月对比加载 ==========
+// 双月对比加载
 async function loadCompareData(){
-    if(!supabase) return alert("云端客户端未加载完成");
+    if(!supabase || !window.Plotly){
+        alert("页面资源未加载完成，请等待顶部提示变为绿色✅再操作！");
+        return;
+    }
     const tagA = document.getElementById("compare-month-a").value;
     const tagB = document.getElementById("compare-month-b").value;
     if(tagA === tagB) return alert("两个月份不能相同");
@@ -438,7 +489,7 @@ async function loadCompareData(){
     Plotly.newPlot("compare-chart", [traceA, traceB], {title:"两月核心指标对比"});
 }
 
-// ========== 保存警戒值 ==========
+// 保存警戒值
 function saveAlertConfig(){
     alertConfig.ORDER_MARGIN_RATE_THRESHOLD = Number(document.getElementById("alert-order-rate").value);
     alertConfig.OPERATE_MARGIN_RATE_THRESHOLD = Number(document.getElementById("alert-operate-rate").value);
