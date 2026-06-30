@@ -4,11 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Temu云端数据分析工具 Supabase版</title>
-    <!-- 引入依赖 -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.plot.ly/plotly-2.20.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+    <!-- 国内字节CDN，解决国外cdn加载卡顿/失效 -->
+    <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-100-M/@supabase/supabase-js/2.33.1/supabase.min.js"></script>
+    <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-100-M/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-100-M/plotly.js/2.20.0/plotly.min.js"></script>
     <style>
         * {box-sizing: border-box;font-family: "Microsoft Yahei",sans-serif;}
         body {margin:0;padding:20px;background:#f7f8fa;}
@@ -37,19 +36,15 @@
 <div class="container">
     <div class="header">
         <h1>📊 Temu 云端数据分析工具（Supabase跨设备同步）</h1>
-        <div id="login-area">
-            <input type="password" id="pwd-input" placeholder="输入访问密码" value="123456">
-            <button onclick="login()">登录系统</button>
-        </div>
-        <div id="user-area" style="display:none;">
-            <span class="success">✅ 已登录</span>
-            <button onclick="logout()">退出</button>
+        <!-- 移除登录输入框、登录按钮，无需密码 -->
+        <div id="user-area" style="display:block;">
+            <span class="success">✅ 已自动登录，可直接操作全部功能</span>
         </div>
     </div>
 
-    <!-- 顶部菜单 -->
-    <div class="menu-bar" id="main-menu" style="display:none;">
-        <button class="menu-btn" data-target="upload-panel">📤 上传月度数据入库</button>
+    <!-- 顶部菜单（页面加载直接显示） -->
+    <div class="menu-bar" id="main-menu" style="display:flex;">
+        <button class="menu-btn active" data-target="upload-panel">📤 上传月度数据入库</button>
         <button class="menu-btn" data-target="single-panel">📊 单月云端数据分析</button>
         <button class="menu-btn" data-target="compare-panel">📈 双月历史对比</button>
         <button class="menu-btn" data-target="manage-panel">🗃️ 云端数据管理</button>
@@ -58,7 +53,7 @@
     </div>
 
     <!-- 1.上传面板 -->
-    <div class="panel" id="upload-panel">
+    <div class="panel show" id="upload-panel">
         <h2>📤 上传报表并保存至Supabase云端</h2>
         <div class="row">
             <label>月份标签：</label>
@@ -139,7 +134,6 @@ const SUPABASE_URL = "https://odkkixjekbrlcubqoedh.supabase.co/rest/v1/";
 const SUPABASE_KEY = "sb_publishable_mvFibBRbdZbCgprH8k9Exg_352fXP2p";
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const BUCKET_NAME = "files";
-const PWD_FIXED = "123456";
 
 // 全局缓存
 let currentExcelData = null;
@@ -150,29 +144,12 @@ let alertConfig = {
     UNIT_PRICE_THRESHOLD: 10,
     UNIT_PROFIT_THRESHOLD: 2
 };
-let isLogin = false;
+// 移除密码登录，页面加载直接置为登录状态
+let isLogin = true;
 
-// ========== 登录逻辑 ==========
-function login(){
-    const pwd = document.getElementById("pwd-input").value;
-    if(pwd === PWD_FIXED){
-        isLogin = true;
-        document.getElementById("login-area").style.display = "none";
-        document.getElementById("user-area").style.display = "block";
-        document.getElementById("main-menu").style.display = "flex";
-        // 初始化月份下拉
-        refreshMonthSelect();
-        alert("登录成功");
-    }else{
-        alert("密码错误");
-    }
-}
-function logout(){
-    isLogin = false;
-    document.getElementById("login-area").style.display = "flex";
-    document.getElementById("user-area").style.display = "none";
-    document.getElementById("main-menu").style.display = "none";
-    hideAllPanel();
+// ========== 页面初始化：自动加载月份下拉列表 ==========
+window.onload = function(){
+    refreshMonthSelect();
 }
 
 // ========== 菜单切换 ==========
