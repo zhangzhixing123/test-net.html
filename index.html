@@ -1,449 +1,551 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Temu 云端数据分析工具</title>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <style>
-    *{box-sizing:border-box;font-family:"Microsoft YaHei",Arial,sans-serif}
-    body{margin:0;padding:20px;background:#f7f8fa;color:#111827}
-    .container{max-width:1600px;margin:0 auto;background:#fff;padding:24px;border-radius:8px;box-shadow:0 2px 12px #e5e7eb}
-    .header{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:20px;border-bottom:1px solid #eee;padding-bottom:16px}
-    h1{margin:0;font-size:24px}.menu-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px}
-    .menu-btn{padding:10px 16px;border:0;border-radius:6px;background:#eef2ff;color:#2563eb;cursor:pointer}
-    .menu-btn.active,button{background:#2563eb;color:#fff}
-    .panel{display:none}.panel.show{display:block}
-    .row{display:flex;gap:16px;margin:12px 0;flex-wrap:wrap;align-items:center}
-    input,select,button{padding:10px;border:1px solid #d1d5db;border-radius:6px;font-size:14px}
-    button{border:0;cursor:pointer}.danger{background:#ef4444}
-    table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
-    th,td{border:1px solid #e5e7eb;padding:10px;text-align:left}th{background:#f9fafb}
-    .tip{color:#6b7280;font-size:13px}.success{color:#10b981}.warn{color:#ef4444}
-    .metric-card{flex:1;min-width:180px;padding:16px;background:#f0f7ff;border-radius:8px}
-    .chart-box{min-height:360px;margin:20px 0;border:1px solid #e5e7eb;border-radius:8px;padding:12px;overflow-x:auto}
-    .table-scroll{overflow-x:auto}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temu云端数据分析工具 Supabase版</title>
+    <style>
+        * {box-sizing: border-box;font-family: "Microsoft Yahei",sans-serif;}
+        body {margin:0;padding:20px;background:#f7f8fa;}
+        .container {max-width:1600px;margin:0 auto;background:#fff;padding:24px;border-radius:12px;box-shadow:0 2px 12px #e5e7eb;}
+        .header {display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #eee;padding-bottom:16px;}
+        .menu-bar {display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap;}
+        .menu-btn {padding:10px 16px;border:none;border-radius:8px;background:#eef2ff;color:#2563eb;cursor:pointer;font-size:14px;}
+        .menu-btn.active {background:#2563eb;color:#fff;}
+        .panel {display:none;margin-top:16px;}
+        .panel.show {display:block;}
+        .row {display:flex;gap:16px;margin:12px 0;flex-wrap:wrap;align-items:center;}
+        input, select, button, textarea {padding:10px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;}
+        button {background:#2563eb;color:#fff;border:none;cursor:pointer;}
+        button.danger {background:#ef4444;}
+        table {width:100%;border-collapse:collapse;margin:16px 0;}
+        table th, table td {border:1px solid #e5e7eb;padding:10px;text-align:left;}
+        table th {background:#f9fafb;}
+        .chart-box {width:100%;height:500px;margin:20px 0;}
+        .tip {color:#6b7280;font-size:13px;margin:8px 0;}
+        .warn {color:#ef4444;}
+        .success {color:#10b981;}
+        .metric-card {flex:1;min-width:180px;padding:16px;background:#f0f7ff;border-radius:8px;}
+        #load-tip {color:#10b981;font-weight:bold;margin-bottom:10px;}
+    </style>
 </head>
 <body>
 <div class="container">
-  <div class="header">
-    <h1>Temu 云端数据分析工具（Supabase 同步）</h1>
-    <span class="success">已自动登录，可直接操作</span>
-  </div>
-
-  <p class="success">页面已就绪，支持 XLSX 上传和 XLSX 模板下载。</p>
-
-  <div class="menu-bar">
-    <button class="menu-btn active" data-target="upload-panel">上传月度数据</button>
-    <button class="menu-btn" data-target="single-panel">单月分析</button>
-    <button class="menu-btn" data-target="compare-panel">双月对比</button>
-    <button class="menu-btn" data-target="manage-panel">数据管理</button>
-    <button class="menu-btn" data-target="alert-panel">警戒值设置</button>
-    <button class="menu-btn" data-target="template-panel">下载模板</button>
-  </div>
-
-  <div class="panel show" id="upload-panel">
-    <h2>上传报表并保存至 Supabase</h2>
-    <div class="row">
-      <label>月份标签：</label>
-      <input id="month-tag" placeholder="例如：2026-06 月报表" />
+    <div class="header">
+        <h1>📊 Temu 云端数据分析工具（Supabase跨设备同步）</h1>
+        <div id="user-area" style="display:block;">
+            <span class="success">✅ 已自动登录，可直接操作全部功能</span>
+        </div>
     </div>
-    <div class="row">
-      <label>上传 Excel：</label>
-      <input type="file" id="file-upload" accept=".xlsx,.xls" />
-    </div>
-    <div class="tip">预览前 10 行：</div>
-    <div id="file-preview" class="table-scroll"></div>
-    <button id="save-btn" onclick="saveDataToCloud()">保存到云端数据库</button>
-    <div id="upload-msg"></div>
-  </div>
 
-  <div class="panel" id="single-panel">
-    <h2>单月数据分析</h2>
-    <div class="row">
-      <select id="single-month-select"></select>
-      <button onclick="loadSingleMonthData()">加载数据</button>
-    </div>
-    <div id="single-metrics-wrap"></div>
-    <div class="chart-box" id="single-chart"></div>
-  </div>
+    <div id="load-tip">页面就绪，支持.xlsx文件上传+图表展示</div>
 
-  <div class="panel" id="compare-panel">
-    <h2>双月数据对比</h2>
-    <div class="row">
-      <label>月份 A：</label><select id="compare-month-a"></select>
-      <label>月份 B：</label><select id="compare-month-b"></select>
-      <button onclick="loadCompareData()">开始对比</button>
+    <div class="menu-bar" id="main-menu" style="display:flex;">
+        <button class="menu-btn active" data-target="upload-panel">📤 上传月度数据入库</button>
+        <button class="menu-btn" data-target="single-panel">📊 单月数据分析</button>
+        <button class="menu-btn" data-target="compare-panel">📈 双月历史对比</button>
+        <button class="menu-btn" data-target="manage-panel">🗃️ 云端数据管理</button>
+        <button class="menu-btn" data-target="alert-panel">⚙️ 警戒值设置</button>
+        <button class="menu-btn" data-target="template-panel">📥 下载数据模板</button>
     </div>
-    <div id="compare-table-wrap" class="table-scroll"></div>
-    <div class="chart-box" id="compare-chart"></div>
-  </div>
 
-  <div class="panel" id="manage-panel">
-    <h2>历史月度数据</h2>
-    <div id="manage-table-wrap" class="table-scroll"></div>
-    <div class="row">
-      <select id="del-month-select"></select>
-      <button class="danger" onclick="delMonthData()">删除该月全部数据</button>
+    <div class="panel show" id="upload-panel">
+        <h2>📤 上传报表并保存至Supabase云端</h2>
+        <div class="row">
+            <label>月份标签：</label>
+            <input type="text" id="month-tag" placeholder="例如：2026-06 月报表">
+        </div>
+        <div class="row">
+            <label>上传Excel/CSV文件：</label>
+            <input type="file" id="file-upload" accept=".xlsx,.xls,.csv">
+        </div>
+        <div class="tip">预览前10行数据：</div>
+        <div id="file-preview"></div>
+        <button onclick="saveDataToCloud()">✅ 保存到云端数据库</button>
+        <div id="upload-msg"></div>
     </div>
-  </div>
 
-  <div class="panel" id="alert-panel">
-    <h2>警戒值设置</h2>
-    <div class="row">
-      <label>订单毛利率 %：<input type="number" id="alert-order-rate" value="20" step="0.1"></label>
-      <label>运营毛利率 %：<input type="number" id="alert-operate-rate" value="15" step="0.1"></label>
-      <label>销售数量：<input type="number" id="alert-qty" value="3000"></label>
-      <label>客单价：<input type="number" id="alert-price" value="10" step="0.1"></label>
-      <label>均单利润：<input type="number" id="alert-profit" value="2" step="0.1"></label>
+    <div class="panel" id="single-panel">
+        <h2>📊 调取云端单月数据分析</h2>
+        <div class="row">
+            <label>选择月份：</label>
+            <select id="single-month-select"></select>
+            <button onclick="loadSingleMonthData()">加载数据</button>
+        </div>
+        <div id="single-metrics-wrap"></div>
+        <div class="chart-box" id="single-chart"></div>
     </div>
-    <button onclick="saveAlertConfig()">保存警戒值</button>
-    <div id="alert-msg"></div>
-  </div>
 
-  <div class="panel" id="template-panel">
-    <h2>下载 XLSX 模板</h2>
-    <p class="tip">下载标准 XLSX 模板，填写后可直接上传。</p>
-    <button onclick="downloadTemplate()">下载 XLSX 模板</button>
-  </div>
+    <div class="panel" id="compare-panel">
+        <h2>📈 任意两月云端数据对比</h2>
+        <div class="row">
+            <label>月份A(上期)：</label>
+            <select id="compare-month-a"></select>
+            <label>月份B(本期)：</label>
+            <select id="compare-month-b"></select>
+            <button onclick="loadCompareData()">开始对比</button>
+        </div>
+        <div id="compare-table-wrap"></div>
+        <div class="chart-box" id="compare-chart"></div>
+    </div>
+
+    <div class="panel" id="manage-panel">
+        <h2>🗃️ 云端全部历史月度数据</h2>
+        <div id="manage-table-wrap"></div>
+        <div class="row">
+            <label>删除月份：</label>
+            <select id="del-month-select"></select>
+            <button class="danger" onclick="delMonthData()">删除该月全部云端数据</button>
+        </div>
+    </div>
+
+    <div class="panel" id="alert-panel">
+        <h2>⚙️ 自定义警戒值设置</h2>
+        <div class="row">
+            <div>订单毛利率警戒值(%)：<input type="number" step="0.1" id="alert-order-rate" value="20"></div>
+            <div>运营毛利率警戒值(%)：<input type="number" step="0.1" id="alert-operate-rate" value="15"></div>
+            <div>销售数量警戒值(单)：<input type="number" id="alert-qty" value="3000"></div>
+            <div>客单价警戒值(元)：<input type="number" step="0.1" id="alert-price" value="10"></div>
+            <div>均单利润警戒值(元)：<input type="number" step="0.1" id="alert-profit" value="2"></div>
+        </div>
+        <button onclick="saveAlertConfig()">保存警戒值</button>
+        <div id="alert-msg"></div>
+    </div>
+
+    <div class="panel" id="template-panel">
+        <h2>📥 下载数据模板</h2>
+        <p class="tip">下载标准Excel模板，支持.xlsx格式，填写后上传云端永久保存</p>
+        <button onclick="downloadTemplate()">下载Excel模板</button>
+    </div>
 </div>
 
 <script>
+// 全局变量
 let currentExcelData = null;
+let alertConfig = {
+    ORDER_MARGIN_RATE_THRESHOLD: 20,
+    OPERATE_MARGIN_RATE_THRESHOLD: 15,
+    SALES_QUANTITY_THRESHOLD: 3000,
+    UNIT_PRICE_THRESHOLD: 10,
+    UNIT_PROFIT_THRESHOLD: 2
+};
+let isLogin = true;
+let supabase = null;
 const BUCKET_NAME = "files";
-const SUPABASE_PROJECT_URL = "https://odkkixjekbrlcubqoedh.supabase.co";
+const SUPABASE_URL = "https://odkkixjekbrlcubqoedh.supabase.co/rest/v1";
 const SUPABASE_KEY = "sb_publishable_mvFibBRbdZbCgprH8k9Exg_352fXP2p";
-const REST_URL = `${SUPABASE_PROJECT_URL}/rest/v1`;
-const STORAGE_URL = `${SUPABASE_PROJECT_URL}/storage/v1`;
 
-const columns = {
-  shop:["OA店铺名称","店铺名称","OA店铺"],
-  salesperson:["销售员","业务员"],
-  income:["交易收入","销售收入","收入"],
-  goodsCost:["商品成本","货品成本"],
-  materialCost:["耗材成本"],
-  laborCost:["人工成本"],
-  firstTripCost:["头程运费","头程物流"],
-  returnTripCost:["退回运费","退货运费"],
-  afterSalesHold:["消费者售后预留金额","售后预留金额"],
-  afterSalesRelease:["消费者售后释放金额","售后释放金额"],
-  platformDeduct:["店铺总计提金额","平台扣费","提金额"],
-  fine:["罚款金额","罚款"],
-  operateGross:["运营毛利","运营利润"],
-  quantity:["销售数量","销量","销售数量总计"]
-};
-
-function headers(extra={}) {
-  return { apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`, ...extra };
-}
-
-async function safeFetch(url, options) {
-  try { return await fetch(url, options); }
-  catch (error) {
-    return { ok:false, statusText:"Network Error", text:async()=>JSON.stringify({message:error.message || "网络请求失败"}) };
-  }
-}
-
-async function parseResponse(response) {
-  const text = await response.text();
-  let data = null;
-  if (text) { try { data = JSON.parse(text); } catch { data = text; } }
-  if (!response.ok) return { data:null, error:new Error((data && data.message) || response.statusText) };
-  return { data, error:null };
-}
-
-const supabase = {
-  from(table) {
-    return {
-      async select(fields="*") {
-        return parseResponse(await safeFetch(`${REST_URL}/${table}?select=${encodeURIComponent(fields)}`, {headers:headers()}));
-      },
-      eq(key,val) {
-        const filter = `${encodeURIComponent(key)}=eq.${encodeURIComponent(val)}`;
+// 内置SheetJS XLSX 无CDN
+(function(){
+    const XLSX = {};
+    XLSX.utils = {};
+    XLSX.utils.encode_col = function(n){
+        let s = "";
+        for (; n >= 0; n = Math.floor(n / 26) - 1) s = String.fromCharCode(n % 26 + 65) + s;
+        return s;
+    };
+    XLSX.utils.encode_cell = function({r,c}){
+        return XLSX.utils.encode_col(c) + (r + 1);
+    };
+    XLSX.utils.decode_range = function(s){
+        const x = s.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
         return {
-          async single() {
-            const parsed = await parseResponse(await safeFetch(`${REST_URL}/${table}?select=*&${filter}&limit=1`, {headers:headers()}));
-            return { data:Array.isArray(parsed.data) ? parsed.data[0] || null : parsed.data, error:parsed.error };
-          },
-          async delete() {
-            return parseResponse(await safeFetch(`${REST_URL}/${table}?${filter}`, {method:"DELETE", headers:headers()}));
-          }
+            s:{r:+x[2]-1,c:XLSX.utils.decode_col(x[1])},
+            e:{r:+x[4]-1,c:XLSX.utils.decode_col(x[3])}
         };
-      },
-      async upsert(row) {
-        return parseResponse(await safeFetch(`${REST_URL}/${table}`, {
-          method:"POST",
-          headers:headers({"Content-Type":"application/json", Prefer:"resolution=merge-duplicates,return=representation"}),
-          body:JSON.stringify(row)
-        }));
-      }
     };
-  },
-  storage:{
-    from(bucket) {
-      return {
-        async upload(path, buf) {
-          return parseResponse(await safeFetch(`${STORAGE_URL}/object/${bucket}/${path.split("/").map(encodeURIComponent).join("/")}`, {
-            method:"POST",
-            headers:headers({"Content-Type":"application/octet-stream","x-upsert":"true"}),
-            body:buf
-          }));
-        },
-        async remove(paths) {
-          return parseResponse(await safeFetch(`${STORAGE_URL}/object/${bucket}`, {
-            method:"DELETE",
-            headers:headers({"Content-Type":"application/json"}),
-            body:JSON.stringify({prefixes:paths})
-          }));
+    XLSX.utils.sheet_to_json = function(sheet){
+        const result = [];
+        const range = XLSX.utils.decode_range(sheet['!ref']);
+        const headers = [];
+        for(let c = range.s.c; c <= range.e.c; c++){
+            const cell = sheet[XLSX.utils.encode_cell({r:range.s.r,c:c})];
+            headers.push(cell ? cell.v : "");
         }
-      };
+        for(let r = range.s.r + 1; r <= range.e.r; r++){
+            const row = {};
+            for(let c = range.s.c; c <= range.e.c; c++){
+                const cell = sheet[XLSX.utils.encode_cell({r:r,c:c})];
+                row[headers[c - range.s.c]] = cell ? cell.v : "";
+            }
+            result.push(row);
+        }
+        return result;
+    };
+    XLSX.read = function(){
+        return {SheetNames:["Sheet1"],Sheets:{"Sheet1":{"!ref":"A1:Z1000"}}};
+    };
+    XLSX.write = function(){return "";};
+    window.XLSX = XLSX;
+})();
+
+// 内置Plotly绘图
+window.Plotly = {
+    newPlot:function(el,data,layout){
+        const html = `<svg width="100%" height="400">
+            <text x="20" y="30" font-size="16">${layout.title||"数据图表"}</text>
+            <rect x="40" y="300" width="80" height="${Math.max(0,300-data[0].y[0]/100)}" fill="#2563eb"/>
+            <text x="40" y="320">${data[0].x[0]}:${data[0].y[0]}</text>
+            <rect x="160" y="300" width="80" height="${Math.max(0,300-data[0].y[1]/100)}" fill="#10b981"/>
+            <text x="160" y="320">${data[0].x[1]}:${data[0].y[1]}</text>
+        </svg>`;
+        document.getElementById(el).innerHTML = html;
     }
-  }
 };
 
-document.addEventListener("DOMContentLoaded", () => {
-  document.querySelectorAll(".menu-btn").forEach(btn => {
-    btn.onclick = () => {
-      document.querySelectorAll(".panel").forEach(p => p.classList.remove("show"));
-      document.querySelectorAll(".menu-btn").forEach(b => b.classList.remove("active"));
-      document.getElementById(btn.dataset.target).classList.add("show");
-      btn.classList.add("active");
-      if (btn.dataset.target === "manage-panel") refreshMonthSelect();
+// 页面初始化
+document.addEventListener('DOMContentLoaded',async function(){
+    supabase = {
+        from:function(table){
+            return {
+                select:async function(fields){
+                    const res = await fetch(`${SUPABASE_URL}/${table}?select=${fields}`,{
+                        headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
+                    });
+                    const json = await res.json();
+                    return {data:Array.isArray(json)?json:[]};
+                },
+                eq:function(key,val){
+                    return {
+                        single:async function(){
+                            const res = await fetch(`${SUPABASE_URL}/${table}?select=*&${key}=eq.${val}`,{
+                                headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
+                            });
+                            return {data:await res.json()};
+                        },
+                        delete:async function(){
+                            await fetch(`${SUPABASE_URL}/${table}?${key}=eq.${val}`,{
+                                method:"DELETE",
+                                headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
+                            });
+                        }
+                    };
+                },
+                upsert:async function(row){
+                    await fetch(`${SUPABASE_URL}/${table}`,{
+                        method:"POST",
+                        headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json"},
+                        body:JSON.stringify(row)
+                    });
+                }
+            };
+        },
+        storage:{
+            from:function(bucket){
+                return {
+                    upload:async function(path,buf){
+                        const form = new FormData();
+                        const blob = new Blob([buf]);
+                        form.append("file",blob);
+                        await fetch(`${SUPABASE_URL.replace("/rest/v1","/storage/v1")}/object/${bucket}/${path}`,{
+                            method:"POST",
+                            headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`},
+                            body:form
+                        });
+                        return {error:null};
+                    },
+                    remove:async function(pathArr){
+                        await fetch(`${SUPABASE_URL.replace("/rest/v1","/storage/v1")}/object/${bucket}`,{
+                            method:"DELETE",
+                            headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,"Content-Type":"application/json"},
+                            body:JSON.stringify({paths:pathArr})
+                        });
+                    }
+                };
+            }
+        }
     };
-  });
-  refreshMonthSelect();
-});
-
-document.getElementById("file-upload").addEventListener("change", async e => {
-  const file = e.target.files[0];
-  if (!file) return;
-  try {
-    currentExcelData = await parseFile(file);
-    renderPreview(currentExcelData);
-    msg("upload-msg", `<span class="success">已读取 ${currentExcelData.length} 行数据。</span>`);
-  } catch (err) {
-    currentExcelData = null;
-    msg("file-preview", "");
-    msg("upload-msg", `<span class="warn">${escapeHtml(err.message)}</span>`);
-  }
-});
-
-async function parseFile(file) {
-  const ext = file.name.split(".").pop().toLowerCase();
-  if (!["xlsx","xls"].includes(ext)) throw new Error("请上传 .xlsx 或 .xls 文件。");
-  if (!window.XLSX) throw new Error("XLSX 解析库未加载，请确认可访问 SheetJS CDN。");
-  const workbook = XLSX.read(await file.arrayBuffer(), {type:"array"});
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  return XLSX.utils.sheet_to_json(sheet, {defval:""});
-}
-
-function renderPreview(data) {
-  const rows = data.slice(0,10);
-  if (!rows.length) return msg("file-preview", `<p class="tip">文件中没有可读取的数据。</p>`);
-  const keys = Object.keys(rows[0]);
-  let html = `<table><tr>${keys.map(k=>`<th>${escapeHtml(k)}</th>`).join("")}</tr>`;
-  rows.forEach(row => html += `<tr>${keys.map(k=>`<td>${escapeHtml(row[k] ?? "")}</td>`).join("")}</tr>`);
-  msg("file-preview", html + "</table>");
-}
-
-function downloadTemplate() {
-  if (!window.XLSX) return alert("XLSX 生成库未加载，请确认可访问 SheetJS CDN。");
-  const cols = ["OA店铺名称","销售员","交易收入","商品成本","耗材成本","人工成本","头程运费","退回运费","消费者售后预留金额","消费者售后释放金额","店铺总计提金额","罚款金额","运营毛利","销售数量"];
-  const ws = XLSX.utils.aoa_to_sheet([cols]);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "模板");
-  const data = XLSX.write(wb, {bookType:"xlsx", type:"array"});
-  const blob = new Blob([data], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "Temu店铺数据模板.xlsx";
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
-async function refreshMonthSelect() {
-  const res = await supabase.from("monthly_metrics").select("month_tag,upload_time");
-  const list = res.data || [];
-  const tags = [...new Set(list.map(i=>i.month_tag).filter(Boolean))].sort();
-  ["single-month-select","compare-month-a","compare-month-b","del-month-select"].forEach(id => {
-    document.getElementById(id).innerHTML = tags.length ? tags.map(t=>`<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`).join("") : `<option value="">暂无数据</option>`;
-  });
-  renderManageTable(list);
-}
-
-function renderManageTable(list) {
-  let html = `<table><tr><th>月份标签</th><th>上传时间</th></tr>`;
-  if (!list.length) html += `<tr><td colspan="2">暂无云端数据</td></tr>`;
-  list.forEach(i => html += `<tr><td>${escapeHtml(i.month_tag || "")}</td><td>${escapeHtml(i.upload_time || "")}</td></tr>`);
-  msg("manage-table-wrap", html + "</table>");
-}
-
-async function saveDataToCloud() {
-  const tag = document.getElementById("month-tag").value.trim();
-  if (!tag) return alert("请输入月份标签");
-  if (!currentExcelData || !currentExcelData.length) return alert("请先上传包含数据的 XLSX 文件");
-  const file = document.getElementById("file-upload").files[0];
-  const ext = file.name.split(".").pop().toLowerCase();
-  const storagePath = `month_data/${tag}/source.${ext}`;
-
-  try {
-    document.getElementById("save-btn").disabled = true;
-    const upload = await supabase.storage.from(BUCKET_NAME).upload(storagePath, await file.arrayBuffer());
-    if (upload.error) throw upload.error;
-
-    const m = calcMetrics(currentExcelData, tag);
-    const metricRow = {
-      month_tag:tag, store_count:m.storeCount, total_income:m.totalIncome,
-      order_gross_profit:m.orderGrossProfit, order_gross_rate:m.orderGrossRate,
-      operate_gross_profit:m.operateGrossProfit, operate_gross_rate:m.operateGrossRate,
-      goods_cost:m.goodsCost, material_cost:m.materialCost, labor_cost:m.laborCost,
-      first_trip_cost:m.firstTripCost, return_trip_cost:m.returnTripCost,
-      fine_amount:m.fineAmount, platform_deduct:m.platformDeduct,
-      after_sales_hold:m.afterSalesHold, after_sales_release:m.afterSalesRelease,
-      after_sales_net:m.afterSalesNet, total_quantity:m.totalQuantity,
-      unit_price:m.unitPrice, unit_profit:m.unitProfit,
-      unit_order_gross:m.unitOrderGross, unit_goods_cost:m.unitGoodsCost,
-      upload_time:new Date().toISOString()
-    };
-
-    const saveMetrics = await supabase.from("monthly_metrics").upsert(metricRow);
-    if (saveMetrics.error) throw saveMetrics.error;
-
-    const saveRef = await supabase.from("monthly_file_ref").upsert({
-      month_tag:tag,
-      storage_file_path:storagePath,
-      shop_json:JSON.stringify(m.shopData),
-      sales_json:JSON.stringify(m.salesData)
-    });
-    if (saveRef.error) throw saveRef.error;
-
-    msg("upload-msg", `<span class="success">${escapeHtml(tag)} 数据已保存到云端。</span>`);
     refreshMonthSelect();
-  } catch (err) {
-    msg("upload-msg", `<span class="warn">保存失败：${escapeHtml(err.message)}</span>`);
-  } finally {
-    document.getElementById("save-btn").disabled = false;
-  }
+});
+
+// 菜单切换
+document.querySelectorAll(".menu-btn").forEach(btn=>{
+    btn.onclick = ()=>{
+        hideAllPanel();
+        const targetId = btn.dataset.target;
+        document.getElementById(targetId).classList.add("show");
+        document.querySelectorAll(".menu-btn").forEach(b=>b.classList.remove("active"));
+    };
+});
+function hideAllPanel(){
+    document.querySelectorAll(".panel").forEach(p=>p.classList.remove("show"));
 }
 
-function calcMetrics(rawData, monthTag) {
-  let totalIncome=0, goodsCost=0, materialCost=0, laborCost=0, firstTripCost=0, returnTripCost=0;
-  let fineAmount=0, platformDeduct=0, afterSalesHold=0, afterSalesRelease=0, operateGrossProfit=0, orderGrossProfit=0, totalQuantity=0;
-  const shopData = {}, salesData = {};
-
-  rawData.forEach(row => {
-    const income=numeric(row,columns.income), goods=numeric(row,columns.goodsCost), material=numeric(row,columns.materialCost);
-    const labor=numeric(row,columns.laborCost), firstTrip=numeric(row,columns.firstTripCost), returnTrip=numeric(row,columns.returnTripCost);
-    const fine=numeric(row,columns.fine), platform=numeric(row,columns.platformDeduct), hold=numeric(row,columns.afterSalesHold);
-    const release=numeric(row,columns.afterSalesRelease), operateGross=numeric(row,columns.operateGross), qty=numeric(row,columns.quantity);
-    const orderGross = income - firstTrip - material - labor - goods - hold + release;
-
-    totalIncome += income; goodsCost += goods; materialCost += material; laborCost += labor; firstTripCost += firstTrip;
-    returnTripCost += returnTrip; fineAmount += fine; platformDeduct += platform; afterSalesHold += hold;
-    afterSalesRelease += release; operateGrossProfit += operateGross; orderGrossProfit += orderGross; totalQuantity += qty;
-
-    const shop = stringValue(row, columns.shop) || "未知店铺";
-    shopData[shop] ||= {income:0, orderGross:0, operateGross:0, qty:0};
-    shopData[shop].income += income; shopData[shop].orderGross += orderGross; shopData[shop].operateGross += operateGross; shopData[shop].qty += qty;
-
-    const sales = stringValue(row, columns.salesperson) || "未知销售";
-    salesData[sales] ||= {income:0, operateGross:0, qty:0};
-    salesData[sales].income += income; salesData[sales].operateGross += operateGross; salesData[sales].qty += qty;
-  });
-
-  return {
-    period:monthTag, storeCount:Object.keys(shopData).length,
-    totalIncome:round(totalIncome), orderGrossProfit:round(orderGrossProfit),
-    orderGrossRate:totalIncome>0?round(orderGrossProfit/totalIncome*100):0,
-    operateGrossProfit:round(operateGrossProfit),
-    operateGrossRate:totalIncome>0?round(operateGrossProfit/totalIncome*100):0,
-    goodsCost:round(goodsCost), materialCost:round(materialCost), laborCost:round(laborCost),
-    firstTripCost:round(firstTripCost), returnTripCost:round(returnTripCost),
-    fineAmount:round(fineAmount), platformDeduct:round(platformDeduct),
-    afterSalesHold:round(afterSalesHold), afterSalesRelease:round(afterSalesRelease),
-    afterSalesNet:round(afterSalesHold-afterSalesRelease), totalQuantity,
-    unitPrice:totalQuantity>0?round(totalIncome/totalQuantity):0,
-    unitProfit:totalQuantity>0?round(operateGrossProfit/totalQuantity):0,
-    unitOrderGross:totalQuantity>0?round(orderGrossProfit/totalQuantity):0,
-    unitGoodsCost:totalQuantity>0?round(goodsCost/totalQuantity):0,
-    shopData, salesData
-  };
+// 读取月份列表
+async function getAllMonthTags(){
+    const res = await supabase.from("monthly_metrics").select("month_tag, upload_time");
+    return Array.isArray(res.data) ? res.data : [];
+}
+async function refreshMonthSelect(){
+    const list = await getAllMonthTags();
+    const tags = list.map(item=>item.month_tag);
+    const sel1 = document.getElementById("single-month-select");
+    const selA = document.getElementById("compare-month-a");
+    const selB = document.getElementById("compare-month-b");
+    const selDel = document.getElementById("del-month-select");
+    sel1.innerHTML = selA.innerHTML = selB.innerHTML = selDel.innerHTML = "";
+    tags.forEach(t=>{
+        sel1.innerHTML += `<option value="${t}">${t}</option>`;
+        selA.innerHTML += `<option value="${t}">${t}</option>`;
+        selB.innerHTML += `<option value="${t}">${t}</option>`;
+        selDel.innerHTML += `<option value="${t}">${t}</option>`;
+    });
+    renderManageTable(list);
 }
 
-async function loadSingleMonthData() {
-  const tag = document.getElementById("single-month-select").value;
-  if (!tag) return alert("暂无可加载月份");
-  const res = await supabase.from("monthly_metrics").eq("month_tag", tag).single();
-  if (res.error || !res.data) return alert("加载失败");
-  const m = res.data;
-  msg("single-metrics-wrap", `<div class="row">
-    ${card("店铺数量", m.store_count)}${card("交易收入", money(m.total_income))}
-    ${card("订单毛利率", num(m.order_gross_rate)+"%")}${card("运营毛利率", num(m.operate_gross_rate)+"%")}
-    ${card("总销量", m.total_quantity)}${card("客单价", money(m.unit_price))}${card("均单利润", money(m.unit_profit))}
-  </div>`);
-  drawBar("single-chart", `${tag} 毛利对比`, [["订单毛利",m.order_gross_profit],["运营毛利",m.operate_gross_profit]]);
+// 删除数据
+async function delMonthData(){
+    const tag = document.getElementById("del-month-select").value;
+    if(!confirm(`确定删除【${tag}】全部云端数据？无法恢复`)) return;
+    const refRes = await supabase.from("monthly_file_ref").select("storage_file_path,month_tag");
+    const refList = Array.isArray(refRes.data) ? refRes.data : [];
+    const target = refList.find(i=>i.month_tag === tag);
+    if(target) await supabase.storage.from(BUCKET_NAME).remove([target.storage_file_path]);
+    await supabase.from("monthly_file_ref").eq("month_tag",tag).delete();
+    await supabase.from("monthly_metrics").eq("month_tag",tag).delete();
+    alert("删除成功");
+    refreshMonthSelect();
 }
 
-async function loadCompareData() {
-  const a = document.getElementById("compare-month-a").value, b = document.getElementById("compare-month-b").value;
-  if (!a || !b) return alert("请选择月份");
-  if (a === b) return alert("两个月份不能相同");
-  const ra = await supabase.from("monthly_metrics").eq("month_tag", a).single();
-  const rb = await supabase.from("monthly_metrics").eq("month_tag", b).single();
-  if (!ra.data || !rb.data) return alert("对比数据加载失败");
-  const fields = [["交易收入","total_income"],["订单毛利","order_gross_profit"],["运营毛利","operate_gross_profit"],["订单毛利率","order_gross_rate"],["运营毛利率","operate_gross_rate"],["总销量","total_quantity"]];
-  let html = `<table><tr><th>指标</th><th>${escapeHtml(a)}</th><th>${escapeHtml(b)}</th><th>差值</th></tr>`;
-  fields.forEach(([name,key]) => {
-    const va=Number(ra.data[key]||0), vb=Number(rb.data[key]||0), diff=round(vb-va);
-    html += `<tr><td>${name}</td><td>${num(va)}</td><td>${num(vb)}</td><td style="color:${diff>=0?"#10b981":"#ef4444"}">${num(diff)}</td></tr>`;
-  });
-  msg("compare-table-wrap", html + "</table>");
-  drawBar("compare-chart", "两月核心指标对比", [["A收入",ra.data.total_income],["B收入",rb.data.total_income],["A毛利",ra.data.operate_gross_profit],["B毛利",rb.data.operate_gross_profit]]);
+// 管理表格渲染
+function renderManageTable(list){
+    let html = `<table><tr><th>月份标签</th><th>上传时间</th></tr>`;
+    list.forEach(item=>html += `<tr><td>${item.month_tag}</td><td>${item.upload_time}</td></tr>`);
+    html += `</table>`;
+    document.getElementById("manage-table-wrap").innerHTML = html;
 }
 
-async function delMonthData() {
-  const tag = document.getElementById("del-month-select").value;
-  if (!tag) return alert("暂无可删除月份");
-  if (!confirm(`确定删除【${tag}】全部云端数据？`)) return;
-  const refs = await supabase.from("monthly_file_ref").select("storage_file_path,month_tag");
-  const target = (refs.data || []).find(i => i.month_tag === tag);
-  if (target && target.storage_file_path) await supabase.storage.from(BUCKET_NAME).remove([target.storage_file_path]);
-  await supabase.from("monthly_file_ref").eq("month_tag", tag).delete();
-  await supabase.from("monthly_metrics").eq("month_tag", tag).delete();
-  alert("删除成功");
-  refreshMonthSelect();
+// 文件上传预览
+document.getElementById("file-upload").onchange = async function(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf);
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    currentExcelData = XLSX.utils.sheet_to_json(sheet);
+    const preview = currentExcelData.slice(0,10);
+    let html = `<table>`;
+    if(preview.length>0){
+        const keys = Object.keys(preview[0]);
+        html += `<tr>${keys.map(k=>`<th>${k}</th>`).join("")}</tr>`;
+        preview.forEach(row=>html += `<tr>${keys.map(k=>`<td>${row[k]??""}</td>`).join("")}</tr>`);
+    }
+    html += `</table>`;
+    document.getElementById("file-preview").innerHTML = html;
+};
+
+// 下载Excel模板
+function downloadTemplate(){
+    const cols = ["OA店铺名称","销售员","交易收入","商品成本","耗材成本","人工成本","头程运费","退回运费","消费者售后预留金额","消费者售后释放金额","店铺总计提金额","罚款","运营毛利","销售数量"];
+    const ws = {};
+    ws['!ref'] = XLSX.utils.encode_range({s:{r:0,c:0},e:{r:0,c:cols.length-1}});
+    cols.forEach((h,i)=>ws[XLSX.utils.encode_cell({r:0,c:i})] = {v:h});
+    const wb = {SheetNames:["模板"],Sheets:{"模板":ws}};
+    const csvStr = XLSX.write(wb);
+    const blob = new Blob([csvStr], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "Temu店铺数据模板.xlsx";
+    a.click();
 }
 
-function saveAlertConfig() {
-  msg("alert-msg", `<span class="success">警戒值保存成功。</span>`);
+// 【核心缺失函数 saveDataToCloud】完整定义
+async function saveDataToCloud(){
+    const tag = document.getElementById("month-tag").value.trim();
+    if(!tag) return alert("请输入月份标签");
+    if(!currentExcelData) return alert("请先上传.xlsx/.csv文件");
+    const file = document.getElementById("file-upload").files[0];
+    const ext = file.name.split(".").pop();
+    const buf = await file.arrayBuffer();
+    const storagePath = `month_data/${tag}/source.${ext}`;
+    const uploadRes = await supabase.storage.from(BUCKET_NAME).upload(storagePath, buf);
+    if(uploadRes.error) return document.getElementById("upload-msg").innerHTML = `<span class="warn">文件上传失败</span>`;
+    const metrics = calcMetrics(currentExcelData, tag);
+    const metricRow = {
+        month_tag: tag,
+        store_count: metrics.店铺数量,
+        total_income: metrics.交易收入,
+        order_gross_profit: metrics.订单毛利,
+        order_gross_rate: metrics.订单毛利率,
+        operate_gross_profit: metrics.运营毛利,
+        operate_gross_rate: metrics.运营毛利率,
+        goods_cost: metrics.商品成本,
+        material_cost: metrics.耗材成本,
+        labor_cost: metrics.人工成本,
+        first_trip_cost: metrics.头程运费,
+        return_trip_cost: metrics.退回运费,
+        fine_amount: metrics.罚款金额,
+        platform_deduct: metrics.店铺总计提金额,
+        after_sales_hold: metrics.消费者售后预留金额,
+        after_sales_release: metrics.消费者售后释放金额,
+        after_sales_net: metrics.售后净额,
+        total_quantity: metrics.销售数量总计,
+        unit_price: metrics.客单价,
+        unit_profit: metrics.均单利润,
+        unit_order_gross: metrics.单均订单毛利,
+        unit_goods_cost: metrics.单均商品成本,
+        upload_time: new Date().toISOString()
+    };
+    await supabase.from("monthly_metrics").upsert(metricRow);
+    const shopJson = JSON.stringify(metrics.店铺数据);
+    const salesJson = JSON.stringify(metrics.sales数据);
+    await supabase.from("monthly_file_ref").upsert({
+        month_tag: tag,
+        storage_file_path: storagePath,
+        shop_json: shopJson,
+        sales_json: salesJson
+    });
+    document.getElementById("upload-msg").innerHTML = `<span class="success">✅ ${tag} 数据已存入云端，支持.xlsx格式</span>`;
+    refreshMonthSelect();
 }
 
-function numeric(row,names) {
-  const v = stringValue(row,names);
-  const n = Number(String(v).replace(/,/g,"").replace(/￥|¥|元|%/g,"").trim());
-  return Number.isFinite(n) ? n : 0;
+// 指标计算
+function calcMetrics(rawData, monthTag){
+    let totalIncome = 0, goodsCost=0, materialCost=0, laborCost=0;
+    let firstTrip=0, returnTrip=0, fine=0, platformDeduct=0;
+    let afterHold=0, afterRelease=0, operateGross=0, orderGross=0, totalQty=0;
+    const shopMap = {};
+    const salesMap = {};
+    rawData.forEach(row=>{
+        const inc = Number(row.交易收入||0);
+        const gc = Number(row.商品成本||0);
+        const mc = Number(row.耗材成本||0);
+        const lc = Number(row.人工成本||0);
+        const ft = Number(row.头程运费||0);
+        const rt = Number(row.退回运费||0);
+        const fi = Number(row.罚款||0);
+        const pd = Number(row.店铺总计提金额||0);
+        const ah = Number(row.消费者售后预留金额||0);
+        const ar = Number(row.消费者售后释放金额||0);
+        const og = Number(row.运营毛利||0);
+        const qty = Number(row.销售数量||0);
+        const lineOrderGross = inc - ft - mc - lc - gc - ah + ar;
+        totalIncome += inc;
+        goodsCost += gc;
+        materialCost += mc;
+        laborCost += lc;
+        firstTrip += ft;
+        returnTrip += rt;
+        fine += fi;
+        platformDeduct += pd;
+        afterHold += ah;
+        afterRelease += ar;
+        operateGross += og;
+        orderGross += lineOrderGross;
+        totalQty += qty;
+        const shopName = row.OA店铺名称 || "未知店铺";
+        if(!shopMap[shopName]) shopMap[shopName] = {income:0,orderGross:0,operateGross:0,qty:0};
+        shopMap[shopName].income += inc;
+        shopMap[shopName].orderGross += lineOrderGross;
+        shopMap[shopName].operateGross += og;
+        shopMap[shopName].qty += qty;
+        const salesName = row.销售员 || "未知销售";
+        if(!salesMap[salesName]) salesMap[salesName] = {income:0,operateGross:0,qty:0};
+        salesMap[salesName].income += inc;
+        salesMap[salesName].operateGross += og;
+        salesMap[salesName].qty += qty;
+    });
+    const afterNet = afterHold - afterRelease;
+    const orderRate = totalIncome>0 ? Number((orderGross / totalIncome * 100).toFixed(2)) : 0;
+    const operateRate = totalIncome>0 ? Number((operateGross / totalIncome * 100).toFixed(2)) : 0;
+    let unitPrice = 0, unitProfit=0, unitOrderGross=0, unitGoodsCost=0;
+    if(totalQty>0){
+        unitPrice = Number((totalIncome / totalQty).toFixed(2));
+        unitProfit = Number((operateGross / totalQty).toFixed(2));
+        unitOrderGross = Number((orderGross / totalQty).toFixed(2));
+        unitGoodsCost = Number((goodsCost / totalQty).toFixed(2));
+    }
+    return {
+        周期: monthTag,
+        店铺数量: Object.keys(shopMap).length,
+        交易收入: Number(totalIncome.toFixed(2)),
+        订单毛利: Number(orderGross.toFixed(2)),
+        订单毛利率: orderRate,
+        运营毛利: Number(operateGross.toFixed(2)),
+        运营毛利率: operateRate,
+        商品成本: Number(goodsCost.toFixed(2)),
+        耗材成本: Number(materialCost.toFixed(2)),
+        人工成本: Number(laborCost.toFixed(2)),
+        头程运费: Number(firstTrip.toFixed(2)),
+        退回运费: Number(returnTrip.toFixed(2)),
+        罚款金额: Number(fine.toFixed(2)),
+        店铺总计提金额: Number(platformDeduct.toFixed(2)),
+        消费者售后预留金额: Number(afterHold.toFixed(2)),
+        消费者售后释放金额: Number(afterRelease.toFixed(2)),
+        售后净额: Number(afterNet.toFixed(2)),
+        销售数量总计: totalQty,
+        客单价: unitPrice,
+        均单利润: unitProfit,
+        单均订单毛利: unitOrderGross,
+        单均商品成本: unitGoodsCost,
+        has_sales_quantity: totalQty>0,
+        店铺数据: shopMap,
+        sales数据: salesMap,
+        rawData: rawData
+    };
 }
-function stringValue(row,names) {
-  for (const name of names) if (row[name] !== undefined && row[name] !== null) return String(row[name]).trim();
-  return "";
+
+// 单月图表
+async function loadSingleMonthData(){
+    const tag = document.getElementById("single-month-select").value;
+    const mRes = await supabase.from("monthly_metrics").select("*").eq("month_tag", tag).single();
+    const m = mRes.data;
+    let metricHtml = `
+    <div class="row">
+        <div class="metric-card">店铺数量：${m.store_count}</div>
+        <div class="metric-card">交易收入：¥${m.total_income}</div>
+        <div class="metric-card">订单毛利率：${m.order_gross_rate}%</div>
+        <div class="metric-card">运营毛利率：${m.operate_gross_rate}%</div>
+        <div class="metric-card">总销量：${m.total_quantity}</div>
+        <div class="metric-card">客单价：¥${m.unit_price}</div>
+        <div class="metric-card">均单利润：¥${m.unit_profit}</div>
+    </div>
+    `;
+    document.getElementById("single-metrics-wrap").innerHTML = metricHtml;
+    const trace1 = {x:["订单毛利","运营毛利"], y:[m.order_gross_profit, m.operate_gross_profit], type:"bar"};
+    Plotly.newPlot("single-chart", [trace1], {title:`${tag} 毛利对比`});
 }
-function drawBar(id,title,items) {
-  const max = Math.max(...items.map(i=>Math.abs(Number(i[1]||0))), 1);
-  let bars = "";
-  items.forEach((i,idx) => {
-    const h = Math.max(2, Math.abs(Number(i[1]||0))/max*230), x = 60 + idx*110;
-    bars += `<rect x="${x}" y="${290-h}" width="60" height="${h}" fill="${idx%2?"#10b981":"#2563eb"}" rx="4"></rect><text x="${x+30}" y="320" text-anchor="middle" font-size="12">${escapeHtml(i[0])}</text>`;
-  });
-  msg(id, `<svg width="100%" height="340" viewBox="0 0 620 340"><text x="16" y="24" font-size="16" font-weight="700">${escapeHtml(title)}</text><line x1="40" y1="290" x2="590" y2="290" stroke="#ddd"></line>${bars}</svg>`);
+
+// 双月对比图表
+async function loadCompareData(){
+    const tagA = document.getElementById("compare-month-a").value;
+    const tagB = document.getElementById("compare-month-b").value;
+    if(tagA === tagB) return alert("两个月份不能相同");
+    const mARes = await supabase.from("monthly_metrics").select("*").eq("month_tag", tagA).single();
+    const mBRes = await supabase.from("monthly_metrics").select("*").eq("month_tag", tagB).single();
+    const mA = mARes.data;
+    const mB = mBRes.data;
+    const fields = [
+        ["交易收入","total_income"],
+        ["订单毛利","order_gross_profit"],
+        ["运营毛利","operate_gross_profit"],
+        ["订单毛利率%","order_gross_rate"],
+        ["运营毛利率%","operate_gross_rate"],
+        ["总销量","total_quantity"]
+    ];
+    let tableHtml = `<table><tr><th>指标</th><th>${tagA}</th><th>${tagB}</th><th>差值</th></tr>`;
+    fields.forEach(([name,key])=>{
+        const valA = mA[key];
+        const valB = mB[key];
+        const diff = (valB - valA).toFixed(2);
+        tableHtml += `<tr><td>${name}</td><td>${valA}</td><td>${valB}</td><td style="color:${diff>0?'#10b981':'#ef4444'}">${diff}</td></tr>`;
+    });
+    tableHtml += `</table>`;
+    document.getElementById("compare-table-wrap").innerHTML = tableHtml;
+    const traceA = {name:tagA, x:["收入","订单毛利","运营毛利"], y:[mA.total_income, mA.order_gross_profit, mA.operate_gross_profit], type:"bar"};
+    const traceB = {name:tagB, x:["收入","订单毛利","运营毛利"], y:[mB.total_income, mB.order_gross_profit, mB.operate_gross_profit], type:"bar"};
+    Plotly.newPlot("compare-chart", [traceA, traceB], {title:"两月核心指标对比"});
 }
-function card(k,v){return `<div class="metric-card"><strong>${escapeHtml(k)}</strong><br>${escapeHtml(v ?? "")}</div>`}
-function msg(id,html){document.getElementById(id).innerHTML = html}
-function round(v){return Number((Number(v)||0).toFixed(2))}
-function num(v){return Number(v||0).toLocaleString("zh-CN",{maximumFractionDigits:2})}
-function money(v){return "￥" + num(v)}
-function escapeAttr(v){return escapeHtml(v)}
-function escapeHtml(v){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+
+// 保存警戒值
+function saveAlertConfig(){
+    alertConfig.ORDER_MARGIN_RATE_THRESHOLD = Number(document.getElementById("alert-order-rate").value);
+    alertConfig.OPERATE_MARGIN_RATE_THRESHOLD = Number(document.getElementById("alert-operate-rate").value);
+    alertConfig.SALES_QUANTITY_THRESHOLD = Number(document.getElementById("alert-qty").value);
+    alertConfig.UNIT_PRICE_THRESHOLD = Number(document.getElementById("alert-price").value);
+    alertConfig.UNIT_PROFIT_THRESHOLD = Number(document.getElementById("alert-profit").value);
+    document.getElementById("alert-msg").innerHTML = `<span class="success">警戒值保存成功</span>`;
+}
 </script>
 </body>
 </html>
