@@ -52,7 +52,7 @@
         <button class="menu-btn" data-target="compare-panel">📈 双月历史对比（环比排名）</button>
         <button class="menu-btn" data-target="manage-panel">🗃️ 云端数据管理</button>
         <button class="menu-btn" data-target="alert-panel">⚙️ 警戒值设置（持久化）</button>
-        <button class="menu-btn" data-target="template-panel">📥 下载标准数据模板</button>
+        <button class="menu-btn" data-target="template-panel">📥 下载数据模板</button>
     </div>
 
     <!-- 上传面板 -->
@@ -72,13 +72,12 @@
         <div id="upload-msg"></div>
     </div>
 
-    <!-- 单月分析面板（完整店铺、销售员多图表） -->
+    <!-- 单月分析面板（移除加载按钮，下拉onchange自动加载） -->
     <div class="panel" id="single-panel">
         <h2>📊 调取云端单月完整数据分析</h2>
         <div class="row">
             <label>选择月份：</label>
-            <select id="single-month-select"></select>
-            <button onclick="loadSingleMonthData()">加载完整月度数据</button>
+            <select id="single-month-select" onchange="loadSingleMonthData()"></select>
         </div>
         <div id="single-metrics-wrap"></div>
         <div class="multi-chart-wrap">
@@ -93,15 +92,14 @@
         <div id="sales-expand-wrap"></div>
     </div>
 
-    <!-- 双月对比面板（环比差异、毛利增长排名） -->
+    <!-- 双月对比面板（移除加载按钮，两个下拉切换自动渲染） -->
     <div class="panel" id="compare-panel">
         <h2>📈 任意两月云端数据对比（环比差异+增长排名）</h2>
         <div class="row">
             <label>月份A(上期)：</label>
-            <select id="compare-month-a"></select>
+            <select id="compare-month-a" onchange="loadCompareData()"></select>
             <label>月份B(本期)：</label>
-            <select id="compare-month-b"></select>
-            <button onclick="loadCompareData()">开始双月对比分析</button>
+            <select id="compare-month-b" onchange="loadCompareData()"></select>
         </div>
         <div id="compare-table-wrap"></div>
         <div class="multi-chart-wrap">
@@ -240,33 +238,34 @@ window.Plotly = {
     }
 };
 
-// ===================== Supabase 简易客户端封装 =====================
+// ===================== 修复后的Supabase客户端封装（解决eq is not a function报错） =====================
 document.addEventListener('DOMContentLoaded',async function(){
     supabase = {
         from:function(table){
             return {
-                select:async function(fields){
-                    const res = await fetch(`${SUPABASE_URL}/${table}?select=${fields}`,{
+                select:async function(fields, eqKey=null, eqVal=null){
+                    let url = `${SUPABASE_URL}/${table}?select=${fields}`;
+                    if(eqKey && eqVal !== null){
+                        url += `&${eqKey}=eq.${encodeURIComponent(eqVal)}`;
+                    }
+                    const res = await fetch(url,{
                         headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
                     });
                     const json = await res.json();
                     return {data:Array.isArray(json)?json:[]};
                 },
-                eq:function(key,val){
-                    return {
-                        single:async function(){
-                            const res = await fetch(`${SUPABASE_URL}/${table}?select=*&${key}=eq.${encodeURIComponent(val)}`,{
-                                headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
-                            });
-                            return {data:await res.json()};
-                        },
-                        delete:async function(){
-                            await fetch(`${SUPABASE_URL}/${table}?${key}=eq.${encodeURIComponent(val)}`,{
-                                method:"DELETE",
-                                headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
-                            });
-                        }
-                    };
+                eqSingle:async function(key,val,fields="*"){
+                    const res = await fetch(`${SUPABASE_URL}/${table}?select=${fields}&${key}=eq.${encodeURIComponent(val)}`,{
+                        headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
+                    });
+                    const arr = await res.json();
+                    return {data: arr.length ? arr[0] : null};
+                },
+                eqDelete:async function(key,val){
+                    await fetch(`${SUPABASE_URL}/${table}?${key}=eq.${encodeURIComponent(val)}`,{
+                        method:"DELETE",
+                        headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
+                    });
                 },
                 upsert:async function(row){
                     await fetch(`${SUPABASE_URL}/${table}`,{
@@ -350,8 +349,8 @@ async function delMonthData(){
     const refList = Array.isArray(refRes.data) ? refRes.data : [];
     const target = refList.find(i=>i.month_tag === tag);
     if(target) await supabase.storage.from(BUCKET_NAME).remove([target.storage_file_path]);
-    await supabase.from("monthly_file_ref").eq("month_tag",tag).delete();
-    await supabase.from("monthly_metrics").eq("month_tag",tag).delete();
+    await supabase.from("monthly_file_ref").eqDelete("month_tag",tag);
+    await supabase.from("monthly_metrics").eqDelete("month_tag",tag);
     alert("删除操作完成");
     refreshMonthSelect();
 }
@@ -451,7 +450,7 @@ async function saveDataToCloud(){
         shop_json: shopJson,
         sales_json: salesJson
     });
-    document.getElementById("upload-msg").innerHTML = `<span class="success">✅ ${tagRaw} 数据入库完成，全维度指标自动计算完毕，可切换页面查看分析图表</span>`;
+    document.getElementById("upload-msg").innerHTML = `<span class="success">✅ ${tagRaw} 数据入库完成，全维度指标自动计算完毕，切换页面查看分析图表</span>`;
     refreshMonthSelect();
 }
 
@@ -545,11 +544,16 @@ function calcFullMetrics(rawData, monthTag){
     };
 }
 
-// ===================== 单月完整分析加载（多图表+店铺/销售员预警面板） =====================
+// ===================== 单月完整分析加载（下拉切换自动执行，无按钮） =====================
 async function loadSingleMonthData(){
     const tag = document.getElementById("single-month-select").value;
-    const mRes = await supabase.from("monthly_metrics").select("*").eq("month_tag", tag).single();
+    if(!tag) return;
+    const mRes = await supabase.from("monthly_metrics").eqSingle("month_tag", tag, "*");
     const m = mRes.data;
+    if(!m){
+        document.getElementById("single-metrics-wrap").innerHTML = `<span class="warn">未查询到该月份数据</span>`;
+        return;
+    }
     // 核心指标卡片渲染
     let metricHtml = `
     <div class="row">
@@ -616,15 +620,23 @@ async function loadSingleMonthData(){
     document.getElementById("sales-expand-wrap").innerHTML = salesExpandHtml;
 }
 
-// ===================== 双月对比完整加载（环比差值+毛利增长排名） =====================
+// ===================== 双月对比自动加载（下拉切换自动执行，无按钮） =====================
 async function loadCompareData(){
     const tagA = document.getElementById("compare-month-a").value;
     const tagB = document.getElementById("compare-month-b").value;
-    if(tagA === tagB) return alert("两个对比月份不能选择同一个");
-    const mARes = await supabase.from("monthly_metrics").select("*").eq("month_tag", tagA).single();
-    const mBRes = await supabase.from("monthly_metrics").select("*").eq("month_tag", tagB).single();
+    if(!tagA || !tagB) return;
+    if(tagA === tagB) {
+        document.getElementById("compare-table-wrap").innerHTML = `<span class="warn">两个对比月份不能选择同一个</span>`;
+        return;
+    }
+    const mARes = await supabase.from("monthly_metrics").eqSingle("month_tag", tagA, "*");
+    const mBRes = await supabase.from("monthly_metrics").eqSingle("month_tag", tagB, "*");
     const mA = mARes.data;
     const mB = mBRes.data;
+    if(!mA || !mB){
+        document.getElementById("compare-table-wrap").innerHTML = `<span class="warn">其中一个月份无数据</span>`;
+        return;
+    }
     // 对比表格渲染
     const fields = [
         ["交易收入","total_income"],
@@ -654,7 +666,7 @@ async function loadCompareData(){
     const traceUnitA = {name:tagA, x:["客单价","均单利润"], y:[mA.unit_price, mA.unit_profit], type:"bar"};
     const traceUnitB = {name:tagB, x:["客单价","均单利润"], y:[mB.unit_price, mB.unit_profit], type:"bar"};
     Plotly.newPlot("compare-unit-chart", [traceUnitA, traceUnitB], {title:"两月客单价&均单利润对比"});
-    // 简易毛利排名（共用全局店铺/销售数据，简化前端实现）
+    // 毛利排名提示
     document.getElementById("shop-rank-wrap").innerHTML = `<div class="tip">完整店铺环比增长排名需上传两月数据后刷新页面查看</div>`;
     document.getElementById("sales-rank-wrap").innerHTML = `<div class="tip">完整销售员环比增长排名需上传两月数据后刷新页面查看</div>`;
 }
